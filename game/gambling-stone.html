@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>翡翠赌石坊</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0800;--card:#1a1208;--gold:#ffd700;--jade:#4dff4d;--red:#ff4444;--border:#3a2a15;--text:#e8d5b8;--dim:#8a7a6a}
+body{background:var(--bg);color:var(--text);font-family:"Microsoft YaHei","PingFang SC",sans-serif;min-height:100vh;overflow-x:hidden}
+.hdr{background:linear-gradient(135deg,#1a1008,#2a1a10,#1a1008);border-bottom:2px solid var(--gold);padding:10px 15px;position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center}
+.hdr h1{font-size:20px;color:var(--gold);text-shadow:0 0 10px rgba(255,215,0,.4)}
+.hdr .money{font-size:18px;color:var(--gold);font-weight:700}
+.hdr .xpi{font-size:11px;color:var(--jade);margin-left:8px}
+.tabs{display:flex;background:#15100a;border-bottom:2px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;min-width:55px;padding:10px 4px;text-align:center;font-size:12px;border:none;background:none;color:var(--dim);cursor:pointer;white-space:nowrap;transition:.2s}
+.tab.active{color:var(--gold);border-bottom:2px solid var(--gold);background:rgba(255,215,0,.05)}
+.pnl{display:none;padding:15px;max-width:900px;margin:0 auto}
+.pnl.show{display:block}
+h2{color:var(--gold);font-size:18px;margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;transition:.2s}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;margin-top:10px}
+.sp{width:65px;height:65px;border-radius:50%;margin:0 auto 8px;position:relative;overflow:hidden;background-size:cover;background-position:center;border:2px solid rgba(255,215,0,.3);box-shadow:inset 0 2px 8px rgba(0,0,0,.4),0 2px 6px rgba(0,0,0,.3)}
+.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700}
+.b-c{background:#444;color:#aaa}.b-u{background:#1a4a1a;color:#4dff4d}.b-r{background:#1a3a6a;color:#4d8fff}
+.b-e{background:#4a1a6a;color:#c44dff}.b-l{background:#5a4a0a;color:#ffd700}
+.btn{padding:8px 20px;border:none;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:.2s}
+.btn:active{transform:scale(.95)}
+.btn-g{background:linear-gradient(135deg,var(--gold),#b8860b);color:#1a0a00}
+.btn-g:hover{box-shadow:0 0 15px rgba(255,215,0,.3)}
+.btn-j{background:linear-gradient(135deg,var(--jade),#2a8a2a);color:#0a1a00}
+.btn-r{background:linear-gradient(135deg,#ff4444,#aa2222);color:#fff}
+.btn-d{background:#333;color:#666;cursor:not-allowed}
+.btn-s{padding:5px 12px;font-size:12px}
+.btn-blk{display:block;width:100%;margin-top:8px}
+.ov{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;justify-content:center;align-items:center;background:rgba(0,0,0,.88)}
+.ov.show{display:flex}
+.ov-box{background:#1a1208;border:2px solid var(--gold);border-radius:15px;padding:20px;max-width:380px;width:90%;text-align:center;animation:pop .4s}
+@keyframes pop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes glow{0%,100%{box-shadow:0 0 5px var(--gold)}50%{box-shadow:0 0 20px var(--gold)}}
+.cut-area{text-align:center;padding:20px}
+.cut-stone{display:inline-block;animation:shake .6s infinite;cursor:pointer}
+.cut-bar{width:80%;max-width:350px;height:18px;background:#1a0a00;border:2px solid var(--border);border-radius:9px;margin:15px auto;overflow:hidden}
+.cut-fill{height:100%;background:linear-gradient(90deg,var(--gold),#ff8c00);width:0%;transition:width .15s;border-radius:7px}
+.feat-list{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0}
+.feat-tag{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.2);padding:2px 6px;border-radius:4px;font-size:11px;color:var(--gold)}
+.skill-row{display:flex;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin:6px 0}
+.skill-icon{font-size:28px;margin-right:10px}
+.skill-info{flex:1}
+.skill-name{font-size:14px;font-weight:700;color:var(--gold)}
+.skill-desc{font-size:11px;color:var(--dim);margin:2px 0}
+.skill-bar{height:8px;background:#1a0a00;border-radius:4px;overflow:hidden;margin-top:3px}
+.skill-fill{height:100%;background:linear-gradient(90deg,var(--jade),var(--gold));border-radius:4px;transition:width .3s}
+.skill-lv{color:var(--jade);font-size:13px;font-weight:700;margin-left:8px;min-width:40px;text-align:right}
+.log{max-height:250px;overflow-y:auto;background:#080500;border:1px solid var(--border);border-radius:8px;padding:8px;margin-top:10px;font-size:12px}
+.log div{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.log .win{color:var(--gold)}.log .lose{color:var(--red)}.log .info{color:#4d8fff}.log .work{color:var(--jade)}
+.evt-card{background:linear-gradient(135deg,#1a1a08,#0a1a08);border:2px solid var(--gold);border-radius:12px;padding:15px;margin:10px 0;animation:glow 2s infinite}
+.evt-title{color:var(--gold);font-size:16px;font-weight:700;margin-bottom:5px}
+.evt-choices{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.coll-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(85px,1fr));gap:8px;margin-top:10px}
+.coll-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:11px;transition:.2s}
+.coll-item.found{border-color:var(--gold);background:rgba(255,215,0,.05)}
+.coll-item .emoji{font-size:28px;display:block;margin:3px 0}
+.coll-item.locked{opacity:.3;filter:grayscale(1)}
+.mkt-item{display:flex;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin:6px 0;gap:10px;cursor:pointer}
+.mkt-item:hover{border-color:var(--gold)}
+.mkt-item .sp{width:45px;height:45px;margin:0;flex-shrink:0}
+.mkt-info{flex:1}.mkt-price{color:var(--gold);font-weight:700}
+.season-banner{background:linear-gradient(135deg,#2a1a00,#1a2a00);border:2px solid var(--gold);border-radius:12px;padding:15px;text-align:center;margin-bottom:15px}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.stat-lbl{font-size:11px;color:var(--dim)}.stat-val{font-size:18px;font-weight:700;color:var(--gold);margin-top:3px}
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--gold);padding:10px 20px;border-radius:8px;color:var(--gold);font-size:14px;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.reveal-box{background:#0a0a00;border:1px solid var(--border);border-radius:10px;padding:15px;margin:10px 0;text-align:center}
+.reveal-gem{font-size:50px;margin:10px 0}
+.hint-text{color:var(--dim);font-size:13px;font-style:italic;margin:8px 0}
+.est-range{color:var(--gold);font-size:16px;font-weight:700;margin:5px 0}
+@media(max-width:480px){.grid{grid-template-columns:repeat(2,1fr)}.hdr h1{font-size:16px}.hdr .money{font-size:15px}.tab{font-size:11px;padding:8px 3px}}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>💎 翡翠赌石坊</h1><div><span class="money" id="hdrMoney">💰 10,000</span><span class="xpi" id="hdrXp">XP:0</span></div></div>
+<div class="tabs" id="tabs"></div>
+<div class="pnl show" id="pnl-market"></div>
+<div class="pnl" id="pnl-workshop"></div>
+<div class="pnl" id="pnl-vault"></div>
+<div class="pnl" id="pnl-skills"></div>
+<div class="pnl" id="pnl-season"></div>
+<div class="pnl" id="pnl-atlas"></div>
+<div class="pnl" id="pnl-log"></div>
+<div class="ov" id="ovMain"><div class="ov-box" id="ovMainBox"></div></div>
+<div class="toast" id="toast"></div>
+<script>
+// ===== GAME DATA =====
+var TABS=[{id:"market",name:"🪨市场"},{id:"workshop",name:"⛏️切石"},{id:"vault",name:"📦藏宝"},{id:"skills",name:"🧠技能"},{id:"season",name:"🎪赛季"},{id:"atlas",name:"📖图鉴"},{id:"log",name:"📊日志"}];
+
+var G={money:10000,xp:0,level:1,inv:[],log:[],stats:{gambles:0,spent:0,earned:0,bigWin:0,bigLoss:0,bankrupt:0,carved:0,carveWin:0,synth:0,pt:0,ptEarned:0,events:0},skills:{skin:0,light:0,origin:0,cut:0,carve:0,eye:0},coll:{},best:0,season:0,mkt:[],cd:{},cur:null,cutStage:0};
+
+var SKILLS=[
+{id:"skin",name:"皮壳识别",icon:"👁️",desc:"识别皮壳特征，预判品质",max:10,xp:50},
+{id:"light",name:"打灯技巧",icon:"🔦",desc:"切割时更准确的提示",max:10,xp:50},
+{id:"origin",name:"产地知识",icon:"🗺️",desc:"了解场口特点与加成",max:10,xp:60},
+{id:"cut",name:"切割手艺",icon:"🔪",desc:"降低切割和擦窗费用",max:10,xp:40},
+{id:"carve",name:"雕刻功底",icon:"🎭",desc:"提高雕刻成功率",max:10,xp:80},
+{id:"eye",name:"估价眼光",icon:"💎",desc:"更精确的估值范围",max:10,xp:70}
+];
+
+var ORIGINS=["莫西沙","会卡","莫湾基","大马坎","后江","木那","南齐","帕敢","龙肯","打木坎"];
+var SKINS=["黄盐砂皮","白盐砂皮","黑乌砂皮","水翻砂皮","腊肉皮","铁锈皮","杨梅皮","石灰皮","老象皮","脱砂皮"];
+var FEATS=[{id:"sh",name:"松花",icon:"🌿"},{id:"md",name:"蟒带",icon:"🐍"},{id:"x",name:"癣",icon:"⬛"},{id:"wc",name:"雾层",icon:"🌫️"}];
+
+var GEMS=[
+{id:"waste",name:"废石",emoji:"🪨",value:0,r:0},
+{id:"quartz",name:"石英",emoji:"⚪",value:15,r:0},
+{id:"cobble",name:"鹅卵石",emoji:"🔘",value:30,r:0},
+{id:"agate",name:"玛瑙",emoji:"🔴",value:120,r:1},
+{id:"jasper",name:"碧玉",emoji:"🟢",value:250,r:1},
+{id:"nephrite",name:"青玉",emoji:"💚",value:550,r:1},
+{id:"dou",name:"豆种翡翠",emoji:"🫘",value:900,r:2},
+{id:"nuo",name:"糯种翡翠",emoji:"🍚",value:1800,r:2},
+{id:"bing",name:"冰种翡翠",emoji:"🧊",value:5500,r:2},
+{id:"gaobing",name:"高冰种",emoji:"❄️",value:13000,r:3},
+{id:"boli",name:"玻璃种",emoji:"✨",value:28000,r:3},
+{id:"manlv",name:"满绿翡翠",emoji:"💚💎",value:55000,r:4},
+{id:"diwang",name:"帝王绿",emoji:"👑",value:120000,r:5},
+{id:"longshi",name:"龙石种",emoji:"🐉",value:350000,r:5},
+{id:"qicai",name:"七彩翡翠",emoji:"🌈",value:900000,r:6},
+{id:"yunshi",name:"天外陨石翡翠",emoji:"☄️",value:2500000,r:6},
+{id:"hundun",name:"混沌神石",emoji:"🌌",value:6000000,r:7},
+{id:"chuangshi",name:"创世之眼",emoji:"👁️✨",value:18000000,r:7}
+];
+
+var CARVES=[
+{id:"fo",name:"佛像",icon:"🙏",sr:.6,mul:2.5,ms:0},
+{id:"lf",name:"龙凤",icon:"🐉",sr:.5,mul:3,ms:2},
+{id:"hn",name:"花鸟",icon:"🌸",sr:.7,mul:2,ms:0},
+{id:"ss",name:"山水",icon:"🏔️",sr:.45,mul:3.5,ms:4},
+{id:"ry",name:"如意",icon:"🪷",sr:.55,mul:2.8,ms:1},
+{id:"sx",name:"十二生肖",icon:"🐲",sr:.4,mul:4,ms:6}
+];
+
+var SEASONS=[
+{name:"缅甸公盘季",desc:"高品质原石涌入市场，价格+30%但出绿率提高",mod:{pm:1.3,lm:1.2}},
+{name:"废料逆袭周",desc:"低价料有隐藏惊喜！极品概率翻倍",mod:{pm:.8,lm:2}},
+{name:"帝王绿挑战赛",desc:"限定预算¥50,000，看谁开出最大帝王绿",mod:{pm:1,lm:1,bud:50000}},
+{name:"雕刻嘉年华",desc:"雕刻费减半，成功率+20%",mod:{pm:1,lm:1,cb:.2,cd:.5}},
+{name:"神秘场口",desc:"产地隐藏，但有概率开出全新玉种",mod:{pm:1,lm:1.5}}
+];
+
+var EVENTS=[
+{t:"🕴️ 神秘商人",d:"一块古河床料，要价¥8000，皮壳很老，打灯见绿...",c:[{t:"买下它 💰8000",cost:8000,type:"special"},{t:"太贵了，算了"}]},
+{t:"🏚️ 老坑塌方",d:"莫西沙场口塌方！该产地原石涨价50%，但品质更集中",c:[{t:"趁机囤货 💰2000",cost:2000,type:"moxi_up"},{t:"观望不动"}]},
+{t:"🎁 大师指点",d:"一位老玉雕大师路过，愿意免费教你雕刻技巧",c:[{t:"虚心学习 (+100XP)",xp:100},{t:"没空，算了"}]},
+{t:"🎭 假货横行",d:"市场上出现一批假原石，接下来3次购买需格外小心",c:[{t:"我提高警惕",mod:"fake"},{t:"我不在乎"}]},
+{t:"💎 赌石大赛",d:"限时挑战！预算¥20000，3分钟内切出最贵的翡翠赢大奖",c:[{t:"参加！💰20000",cost:20000,type:"contest"},{t:"旁观"}]},
+{t:"🌊 洪水冲出料",d:"暴雨后河床露出一批水石料，便宜但品质未知",c:[{t:"全部包下 💰3000",cost:3000,type:"flood_big"},{t:"挑几块 💰1000",cost:1000,type:"flood_small"},{t:"算了"}]}
+];
+
+function makeStoneCanvas(baseR,baseG,baseB,accentR,accentG,accentB){
+var cv=document.createElement('canvas');cv.width=120;cv.height=120;
+var ctx=cv.getContext('2d');
+var cx=60,cy=60;
+var grd=ctx.createRadialGradient(cx-15,cy-15,5,cx,cy,65);
+grd.addColorStop(0,'rgb('+Math.min(255,baseR+40)+','+Math.min(255,baseG+40)+','+Math.min(255,baseB+40)+')');
+grd.addColorStop(0.6,'rgb('+baseR+','+baseG+','+baseB+')');
+grd.addColorStop(1,'rgb('+Math.max(0,baseR-30)+','+Math.max(0,baseG-30)+','+Math.max(0,baseB-30)+')');
+ctx.fillStyle=grd;ctx.beginPath();ctx.arc(cx,cy,60,0,Math.PI*2);ctx.fill();
+for(var i=0;i<60;i++){var px=Math.random()*120,py=Math.random()*120;
+var bright=Math.random()>.5;
+ctx.fillStyle=bright?'rgba(255,255,255,'+(Math.random()*.12).toFixed(2)+')':'rgba(0,0,0,'+(Math.random()*.15).toFixed(2)+')';
+ctx.beginPath();ctx.arc(px,py,1+Math.random()*4,0,Math.PI*2);ctx.fill()}
+for(var i=0;i<8;i++){ctx.strokeStyle='rgba(0,0,0,'+(0.05+Math.random()*.1).toFixed(2)+')';
+ctx.lineWidth=0.5+Math.random()*1.5;
+ctx.beginPath();
+var sx=Math.random()*120,sy=Math.random()*120;
+ctx.moveTo(sx,sy);
+for(var j=0;j<3;j++){sx+=(Math.random()-.5)*30;sy+=(Math.random()-.5)*30;ctx.lineTo(sx,sy)}
+ctx.stroke()}
+ctx.fillStyle='rgba('+accentR+','+accentG+','+accentB+',0.08)';
+ctx.beginPath();ctx.ellipse(55,50,30,20,0.3,0,Math.PI*2);ctx.fill();
+var hi=ctx.createRadialGradient(45,38,2,45,38,18);
+hi.addColorStop(0,'rgba(255,255,255,0.12)');hi.addColorStop(1,'rgba(255,255,255,0)');
+ctx.fillStyle=hi;ctx.beginPath();ctx.arc(45,38,18,0,Math.PI*2);ctx.fill();
+return cv.toDataURL('image/png')}
+var STONE_IMGS={};
+function initStoneImgs(){
+STONE_IMGS={
+莫西沙:makeStoneCanvas(168,152,120,88,72,40),
+会卡:makeStoneCanvas(104,120,72,56,72,24),
+莫湾基:makeStoneCanvas(56,56,56,24,24,24),
+大马坎:makeStoneCanvas(136,104,72,72,48,24),
+后江:makeStoneCanvas(72,136,136,40,104,104),
+木那:makeStoneCanvas(136,72,72,104,40,40),
+南齐:makeStoneCanvas(136,136,72,104,104,40),
+帕敢:makeStoneCanvas(72,72,136,40,40,104),
+龙肯:makeStoneCanvas(136,104,136,104,72,104),
+打木坎:makeStoneCanvas(136,136,104,104,104,72)}
+}
+var SSTYLES={
+莫西沙:{bd:'#988868'},会卡:{bd:'#586838'},莫湾基:{bd:'#484848'},大马坎:{bd:'#785838'},
+后江:{bd:'#387878'},木那:{bd:'#783838'},南齐:{bd:'#787838'},帕敢:{bd:'#383878'},
+龙肯:{bd:'#785878'},打木坎:{bd:'#787858'}
+};
+
+// Gem weights per tier: [gemIndex, weight]
+var TIER_GW=[
+// Tier 0: common stones
+[{i:0,w:35},{i:1,w:25},{i:2,w:15},{i:3,w:10},{i:4,w:8},{i:5,w:5},{i:6,w:1.5},{i:7,w:.4},{i:8,w:.1}],
+// Tier 1: uncommon
+[{i:3,w:20},{i:4,w:20},{i:5,w:18},{i:6,w:15},{i:7,w:12},{i:8,w:8},{i:9,w:4},{i:10,w:2},{i:11,w:.8}],
+// Tier 2: rare
+[{i:5,w:15},{i:6,w:15},{i:7,w:18},{i:8,w:15},{i:9,w:12},{i:10,w:10},{i:11,w:7},{i:12,w:4},{i:13,w:2}],
+// Tier 3: epic
+[{i:7,w:10},{i:8,w:12},{i:9,w:15},{i:10,w:15},{i:11,w:13},{i:12,w:12},{i:13,w:10},{i:14,w:6},{i:15,w:4},{i:16,w:2}],
+// Tier 4: legendary
+[{i:10,w:10},{i:11,w:12},{i:12,w:15},{i:13,w:15},{i:14,w:13},{i:15,w:12},{i:16,w:10},{i:17,w:8}]
+];
+
+// Stone templates with tier
+var STONE_TPL=[
+{name:"河沙石",price:100,tier:0,wt:[1,3],desc:"河边捡来的普通石头"},
+{name:"碎石料",price:300,tier:0,wt:[2,5],desc:"建筑工地的碎石"},
+{name:"翡翠原石",price:800,tier:1,wt:[1,4],desc:"缅甸运来的翡翠原石"},
+{name:"火山岩",price:2000,tier:1,wt:[2,6],desc:"火山喷发形成的岩石"},
+{name:"水石料",price:4000,tier:2,wt:[1,3],desc:"河床冲刷的水石"},
+{name:"老场口料",price:8000,tier:2,wt:[3,8],desc:"老场口出品，皮壳老辣"},
+{name:"色料",price:15000,tier:3,wt:[2,5],desc:"皮壳见色，赌性极大"},
+{name:"帝王绿原石",price:30000,tier:3,wt:[3,7],desc:"传说中的帝王绿原石"},
+{name:"龙脉石",price:80000,tier:4,wt:[5,15],desc:"龙脉孕育的神石"},
+{name:"天外奇石",price:200000,tier:4,wt:[8,20],desc:"陨石撞击形成的奇石"}
+];
+
+// ===== CORE FUNCTIONS =====
+function save(){try{localStorage.setItem("jade_save",JSON.stringify(G));localStorage.setItem("jade_save_time",Date.now().toString())}catch(e){console.warn('Save failed:',e)}}
+function load(){try{var s=localStorage.getItem("jade_save");if(s){var d=JSON.parse(s);for(var k in d){if(d[k]!==null&&d[k]!==undefined)G[k]=d[k]}var saved=localStorage.getItem("jade_save_time");if(saved)console.log('Loaded save from',new Date(parseInt(saved)).toLocaleString())}}catch(e){console.warn('Load failed:',e)}}
+window.addEventListener('beforeunload',function(){save()});
+document.addEventListener('visibilitychange',function(){if(document.hidden)save()})
+
+function fmt(n){if(n>=1e8)return(n/1e4).toFixed(0)+"万";if(n>=1e4)return(n/1e4).toFixed(1)+"万";return n.toLocaleString()}
+function toast(m){var t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show")},2000)}
+function addLog(text,type){G.log.unshift({text:text,type:type||"info",time:new Date().toLocaleTimeString()});if(G.log.length>200)G.log.pop()}
+
+function addXP(n){G.xp+=n;var needed=G.level*100;while(G.xp>=needed){G.xp-=needed;G.level++;toast("🎉 升级！当前等级："+G.level);needed=G.level*100}updateHdr()}
+function updateHdr(){document.getElementById("hdrMoney").textContent="💰 "+fmt(G.money);document.getElementById("hdrXp").textContent="Lv."+G.level+" XP:"+G.xp}
+
+function getSeason(){return SEASONS[G.season%SEASONS.length]}
+
+// Generate a random stone
+function genStone(tpl){
+  var origin=ORIGINS[Math.floor(Math.random()*ORIGINS.length)];
+  var skin=SKINS[Math.floor(Math.random()*SKINS.length)];
+  var feats=[];for(var i=0;i<FEATS.length;i++){if(Math.random()<.3+G.skills.skin*.02)feats.push(FEATS[i])}
+  var weight=tpl.wt[0]+Math.random()*(tpl.wt[1]-tpl.wt[0]);
+  weight=Math.round(weight*10)/10;
+  var price=Math.round(tpl.price*getSeason().mod.pm*(.8+Math.random()*.4));
+  // Skills discount
+  price=Math.max(10,Math.round(price*(1-G.skills.origin*.01)));
+  return{id:"s_"+Date.now()+"_"+Math.random().toString(36).substr(2,4),name:tpl.name,origin:origin,skin:skin,feats:feats,weight:weight,price:price,tier:tpl.tier,desc:tpl.desc,revealed:0,gemIdx:-1,gemValue:0,carved:0,carveTheme:"",carveValue:0,bought:price}
+}
+
+function rollGem(tier){
+  var gw=TIER_GW[Math.min(tier,TIER_GW.length-1)];
+  var luck=1+G.skills.light*.03+getSeason().mod.lm;
+  // Weighted random with luck bonus for higher gems
+  var totalW=0;for(var i=0;i<gw.length;i++)totalW+=gw[i].w;
+  var r=Math.random()*totalW;
+  for(var i=0;i<gw.length;i++){r-=gw[i].w*luck;if(r<=0)return gw[i].i}
+  return gw[gw.length-1].i
+}
+
+function genMarketStones(){
+  G.mkt=[];
+  var count=8+Math.floor(Math.random()*5);
+  for(var i=0;i<count;i++){
+    var tpl=STONE_TPL[Math.floor(Math.random()*STONE_TPL.length)];
+    G.mkt.push(genStone(tpl))
+  }
+  // Maybe trigger event
+  if(Math.random()<.25){
+    var evt=EVENTS[Math.floor(Math.random()*EVENTS.length)];
+    showEvent(evt)
+  }
+}
+
+// ===== MARKET PANEL =====
+function renderMarket(){
+  var p=document.getElementById("pnl-market");
+  var h='<h2>🪨 赌石市场</h2>';
+  h+='<p style="color:var(--dim);font-size:13px">选择原石购买，皮壳特征越多越可能有好料</p>';
+  var s=getSeason();
+  h+='<div style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:8px;padding:8px;margin:8px 0;font-size:12px;color:var(--gold)">🎪 当前赛季：'+s.name+' — '+s.desc+'</div>';
+  h+='<div class="grid">';
+  for(var i=0;i<G.mkt.length;i++){
+    var st=G.mkt[i];
+    var ss=SSTYLES[st.origin]||SSTYLES.莫西沙;
+    var badge="b-c";if(st.tier===1)badge="b-u";if(st.tier===2)badge="b-r";if(st.tier===3)badge="b-e";if(st.tier>=4)badge="b-l";
+    var afford=G.money>=st.price;
+    h+='<div class="card'+(afford?"":" btn-d")+'" style="cursor:'+(afford?"pointer":"not-allowed")+'" onclick="buyStone('+i+')">';
+    h+='<span class="badge '+badge+">"+["普通","优良","稀有","史诗","传说"][st.tier]+'</span>';
+    h+='<div class="sp" style="background:'+ss.bg+';border:3px solid '+ss.bd+'"></div>';
+    h+='<div style="font-size:14px;font-weight:700">'+st.name+'</div>';
+    // Show features based on skin skill
+    if(G.skills.skin>0||st.feats.length>0){
+      h+='<div class="feat-list">';
+      if(G.skills.origin>0)h+='<span class="feat-tag">📍'+st.origin+'</span>';
+      h+='<span class="feat-tag">🪨'+st.skin+'</span>';
+      for(var j=0;j<st.feats.length;j++){h+='<span class="feat-tag">'+st.feats[j].icon+st.feats[j].name+'</span>'}
+      h+='</div>'
+    }
+    h+='<div style="color:var(--dim);font-size:11px">⚖️ '+st.weight+'kg</div>';
+    h+='<div class="mkt-price">💰 '+fmt(st.price)+'</div>';
+    h+='<div style="color:var(--dim);font-size:11px">'+st.desc+'</div>';
+    h+='</div>'
+  }
+  h+='</div>';
+  // Synthesis
+  h+='<div style="margin-top:20px"><h3 style="color:var(--gold)">⚗️ 原石合成</h3>';
+  h+='<p style="color:var(--dim);font-size:12px">消耗3块低品质原石合成1块随机新原石</p>';
+  h+='<button class="btn btn-g btn-s" onclick="doSynth()">合成 (需要3块原石)</button></div>';
+  p.innerHTML=h
+}
+
+function buyStone(idx){
+  if(idx<0||idx>=G.mkt.length)return;
+  var st=G.mkt[idx];
+  if(G.money<st.price){toast("💰 余额不足！");return}
+  G.money-=st.price;G.stats.spent+=st.price;G.stats.gambles++;
+  st.gemIdx=rollGem(st.tier);
+  st.gemValue=GEMS[st.gemIdx].value;
+  G.inv.push(st);G.mkt.splice(idx,1);
+  addLog("购入 "+st.name+"（"+st.origin+"）💰"+fmt(st.price),"info");
+  addXP(5);
+  toast("✅ 购入"+st.name);
+  updateHdr();renderMarket();save()
+}
+
+function doSynth(){
+  if(G.inv.length<3){toast("需要至少3块原石！");return}
+  // Take 3 random uncut stones
+  var uncut=[];for(var i=0;i<G.inv.length;i++){if(G.inv[i].revealed<4)uncut.push(i)}
+  if(uncut.length<3){toast("需要至少3块未切割的原石！");return}
+  var cost=1000;
+  if(G.money<cost){toast("合成费用💰"+fmt(cost)+"不足！");return}
+  G.money-=cost;G.stats.synth++;
+  // Remove 3 lowest tier
+  uncut.sort(function(a,b){return G.inv[a].tier-G.inv[b].tier});
+  var removed=[];for(var i=0;i<3;i++){removed.push(G.inv[uncut[i]])}
+  removed.sort(function(a,b){return b.tier-a.tier}); // remove highest indices first
+  for(var i=2;i>=0;i--){G.inv.splice(uncut[i],1)}
+  // Generate new stone with bonus tier
+  var maxTier=0;for(var i=0;i<removed.length;i++){if(removed[i].tier>maxTier)maxTier=removed[i].tier}
+  var newTier=Math.min(maxTier+(Math.random()<.3?1:0),4);
+  var tpl=STONE_TPL.filter(function(t){return t.tier===newTier});
+  if(tpl.length===0)tpl=STONE_TPL.filter(function(t){return t.tier<=newTier});
+  var newStone=genStone(tpl[Math.floor(Math.random()*tpl.length)]);
+  G.inv.push(newStone);
+  addLog("合成成功！"+removed.map(function(s){return s.name}).join("+")+" → "+newStone.name,"work");
+  addXP(15);
+  toast("⚗️ 合成成功！");
+  updateHdr();renderMarket();save()
+}
+
+// ===== WORKSHOP (CUTTING) =====
+function renderWorkshop(){
+  var p=document.getElementById("pnl-workshop");
+  var h='<h2>⛏️ 切石工坊</h2>';
+  if(G.inv.length===0){h+='<p style="color:var(--dim);text-align:center;padding:30px">没有原石，去市场买一块吧！</p>';p.innerHTML=h;return}
+  h+='<p style="color:var(--dim);font-size:13px">选择一块原石进行加工</p>';
+  h+='<div class="grid">';
+  for(var i=0;i<G.inv.length;i++){
+    var st=G.inv[i];
+    if(st.revealed>=4)continue; // fully cut
+    var ss=SSTYLES[st.origin]||SSTYLES.莫西沙;
+    var badge="b-c";if(st.tier===1)badge="b-u";if(st.tier===2)badge="b-r";if(st.tier===3)badge="b-e";if(st.tier>=4)badge="b-l";
+    h+='<div class="card" style="cursor:pointer" onclick="openCut('+i+')">';
+    h+='<span class="badge '+badge+">"+["普通","优良","稀有","史诗","传说"][st.tier]+'</span>';
+    h+='<div class="sp" style="background:'+ss.bg+';border:3px solid '+ss.bd+';width:50px;height:50px"></div>';
+    h+='<div style="font-size:13px;font-weight:700">'+st.name+'</div>';
+    h+='<div style="color:var(--dim);font-size:11px">📍'+st.origin+' ⚖️'+st.weight+'kg</div>';
+    var stages=["未加工","已擦窗","已深磨","已半切","已全切"];
+    h+='<div style="color:var(--jade);font-size:11px">状态：'+stages[st.revealed]+'</div>';
+    h+='</div>'
+  }
+  h+='</div>';
+  // Vault items that are fully cut but not sold
+  var cutItems=[];for(var i=0;i<G.inv.length;i++){if(G.inv[i].revealed>=4)cutItems.push(i)}
+  if(cutItems.length>0){
+    h+='<h3 style="margin-top:15px;color:var(--gold)">📦 已切割待处理</h3>';
+    h+='<div class="grid">';
+    for(var j=0;j<cutItems.length;j++){
+      var st=G.inv[cutItems[j]];
+      var gem=GEMS[st.gemIdx];
+      h+='<div class="card">';
+      h+='<div style="font-size:36px">'+gem.emoji+'</div>';
+      h+='<div style="font-size:13px;font-weight:700">'+gem.name+'</div>';
+      h+='<div class="mkt-price">💰 '+fmt(st.gemValue)+'</div>';
+      if(st.gemValue>0&&!st.carved){
+        h+='<button class="btn btn-g btn-s" style="margin:4px" onclick="sellGem('+cutItems[j]+')">💰 出售</button>';
+        h+='<button class="btn btn-j btn-s" style="margin:4px" onclick="openCarve('+cutItems[j]+')">🎭 雕刻</button>'
+      }else if(st.carved){
+        h+='<div style="color:var(--jade);font-size:11px">已雕'+st.carveTheme+' 价值💰'+fmt(st.carveValue)+'</div>';
+        h+='<button class="btn btn-g btn-s" onclick="sellGem('+cutItems[j]+')">💰 出售</button>'
+      }else{
+        h+='<div style="color:var(--dim);font-size:11px">废石，无价值</div>';
+        h+='<button class="btn btn-r btn-s" onclick="discardGem('+cutItems[j]+')">🗑️ 丢弃</button>'
+      }
+      h+='</div>'
+    }
+    h+='</div>'
+  }
+  p.innerHTML=h
+}
+
+function openCut(invIdx){
+  G.cur=G.inv[invIdx];G.cutStage=G.cur.revealed;
+  showCutOverlay()
+}
+
+function showCutOverlay(){
+  var st=G.cur;if(!st)return;
+  var h='<div style="text-align:left">';
+  h+='<h2 style="text-align:center">⛏️ '+st.name+'</h2>';
+  h+='<div style="text-align:center;color:var(--dim);font-size:12px">📍'+st.origin+' | 🪨'+st.skin+' | ⚖️'+st.weight+'kg</div>';
+  if(st.feats.length>0){h+='<div class="feat-list" style="justify-content:center;margin:8px 0">';for(var i=0;i<st.feats.length;i++)h+='<span class="feat-tag">'+st.feats[i].icon+st.feats[i].name+'</span>';h+='</div>'}
+
+  // Stages
+  var stageNames=["原始状态","擦窗观察","继续深磨","拦腰切开","完全切开"];
+  h+='<div style="margin:10px 0;display:flex;gap:4px">';
+  for(var i=0;i<5;i++){
+    var active=i<=st.revealed;
+    h+='<div style="flex:1;height:6px;border-radius:3px;background:'+(active?"var(--jade)":"#222")+'"></div>'
+  }
+  h+='</div><div style="text-align:center;color:var(--jade);font-size:13px;margin-bottom:10px">'+stageNames[st.revealed]+'</div>';
+
+  // Reveal box
+  h+='<div class="reveal-box">';
+  if(st.revealed===0){
+    h+='<div style="font-size:50px">🪨</div>';
+    h+='<div class="hint-text">原石还未加工，选择操作方式</div>'
+  }else if(st.revealed<4){
+    // Show hint based on revealed stage and light skill
+    var hint=getHint(st);
+    h+='<div class="reveal-gem">'+hint.emoji+'</div>';
+    h+='<div class="hint-text">'+hint.text+'</div>';
+    if(G.skills.eye>0){
+      var est=getEstimate(st);
+      h+='<div class="est-range">估值：💰 '+fmt(est.lo)+' ~ '+fmt(est.hi)+'</div>'
+    }
+  }
+  h+='</div>';
+
+  // Cost for next action
+  var cutCostMult=1-G.skills.cut*.05;
+  var baseCost=Math.max(10,Math.round(st.bought*.05*cutCostMult));
+  var grindCost=Math.max(20,Math.round(st.bought*.12*cutCostMult));
+  var halfCost=Math.max(50,Math.round(st.bought*.2*cutCostMult));
+  var fullCost=Math.max(100,Math.round(st.bought*.35*cutCostMult));
+
+  // Action buttons
+  h+='<div style="margin-top:10px">';
+  if(st.revealed===0){
+    h+='<button class="btn btn-g btn-blk" onclick="doAction(1,'+baseCost+')">🔍 擦窗 (💰'+fmt(baseCost)+')</button>';
+    h+='<button class="btn btn-j btn-blk" onclick="doAction(3,'+halfCost+')">✂️ 拦腰切 (💰'+fmt(halfCost)+')</button>';
+    h+='<button class="btn btn-r btn-blk" onclick="doAction(4,'+fullCost+')">💥 一刀切 (💰'+fmt(fullCost)+')</button>'
+  }else if(st.revealed===1){
+    h+='<button class="btn btn-g btn-blk" onclick="doAction(2,'+grindCost+')">🔍 继续深磨 (💰'+fmt(grindCost)+')</button>';
+    h+='<button class="btn btn-j btn-blk" onclick="doAction(3,'+halfCost+')">✂️ 拦腰切 (💰'+fmt(halfCost)+')</button>';
+    h+='<button class="btn btn-r btn-blk" onclick="doAction(4,'+fullCost+')">💥 一刀切 (💰'+fmt(fullCost)+')</button>'
+  }else if(st.revealed===2){
+    h+='<button class="btn btn-j btn-blk" onclick="doAction(3,'+halfCost+')">✂️ 拦腰切 (💰'+fmt(halfCost)+')</button>';
+    h+='<button class="btn btn-r btn-blk" onclick="doAction(4,'+fullCost+')">💥 一刀切 (💰'+fmt(fullCost)+')</button>'
+  }else if(st.revealed===3){
+    h+='<button class="btn btn-r btn-blk" onclick="doAction(4,'+fullCost+')">💥 一刀切 (💰'+fmt(fullCost)+')</button>'
+  }
+  // Resell option
+  var resellPrice=getResellPrice(st);
+  h+='<button class="btn btn-blk" style="background:#333;color:var(--gold);margin-top:8px" onclick="resellStone()">🔄 转手卖出 (💰'+fmt(resellPrice)+')</button>';
+  h+='<button class="btn btn-blk" style="background:none;color:var(--dim);border:1px solid #333;margin-top:4px" onclick="closeOv()">返回</button>';
+  h+='</div></div>';
+
+  showOv(h)
+}
+
+function getHint(st){
+  var gem=GEMS[st.gemIdx];
+  var light=G.skills.light;
+  var hints=[];
+  if(st.revealed>=1){
+    if(gem.value===0)hints.push({emoji:"🪨",text:"擦开一小口...看起来不太妙，可能是废石"});
+    else if(gem.value<500)hints.push({emoji:"🟤",text:"擦开见底，隐约有些颜色，可能是普通玉石"});
+    else if(gem.value<2000)hints.push({emoji:"🟢",text:"打灯见绿！有翡翠的可能性"});
+    else if(gem.value<10000)hints.push({emoji:"💚",text:"灯光下绿色浓郁，水头不错！"});
+    else if(gem.value<50000)hints.push({emoji:"✨",text:"种水极佳！玻璃质感，可能大涨！"});
+    else hints.push({emoji:"💎",text:"满绿高冰！这可能是极品！心都在跳！"});
+    if(light>=3&&gem.value>0)hints[0].text+=" [打灯见"+(gem.value>10000?"满":"少许")+"绿]";
+  }
+  if(st.revealed>=2){
+    if(gem.value===0)hints.push({emoji:"💀",text:"深磨后...果然是废石，一文不值"});
+    else if(gem.value<1000)hints.push({emoji:"😐",text:"磨开更多，品质一般，小涨小跌"});
+    else if(gem.value<10000)hints.push({emoji:"😊",text:"绿色面积扩大，种水不错！"});
+    else hints.push({emoji:"🤩",text:"大涨预感！绿色浓阳，水头十足！"});
+    if(light>=5)hints[1].text+=" [估："+gem.name+"]"
+  }
+  if(st.revealed>=3){
+    if(gem.value===0)hints.push({emoji:"💔",text:"拦腰切开，里面全是石头..."});
+    else if(gem.value<2000)hints.push({emoji:"😐",text:"切开后品质一般，小亏"});
+    else if(gem.value<20000)hints.push({emoji:"😄",text:"切涨了！绿色正阳，值得期待！"});
+    else hints.push({emoji:"🔥",text:"大涨！帝王绿级别的表现！"});
+    if(light>=7)hints[2].text+=" [确认："+gem.name+"]"
+  }
+  return hints[hints.length-1]||{emoji:"🪨",text:"等待加工..."}
+}
+
+function getEstimate(st){
+  var gem=GEMS[st.gemIdx];
+  var eye=G.skills.eye;
+  var base=gem.value;
+  var range=Math.max(.5,1-eye*.08);
+  return{lo:Math.round(base*(1-range)),hi:Math.round(base*(1+range))}
+}
+
+function getResellPrice(st){
+  var base=st.bought;
+  var revealBonus=[0,.1,.3,.6,1];
+  var hintBonus=0;
+  if(st.revealed>0){
+    var gem=GEMS[st.gemIdx];
+    if(gem.value>base*2)hintBonus=.4;else if(gem.value>base)hintBonus=.2;else hintBonus=-.1
+  }
+  return Math.round(base*(.5+revealBonus[st.revealed]+hintBonus))
+}
+
+function doAction(stage,cost){
+  if(G.money<cost){toast("💰 费用不足！需要"+fmt(cost));return}
+  G.money-=cost;G.stats.spent+=cost;
+  G.cur.revealed=stage;G.cutStage=stage;
+  addXP(stage*3+2);
+  var actions=["","擦窗","深磨","半切","全切"];
+  addLog(actions[stage]+" "+G.cur.name+"（"+G.cur.origin+"）","info");
+  if(stage===4){
+    // Fully cut - reveal gem
+    var gem=GEMS[G.cur.gemIdx];
+    var profit=G.cur.gemValue-G.cur.bought;
+    addLog("开出 "+gem.emoji+" "+gem.name+" 价值💰"+fmt(gem.value)+(profit>=0?" 切涨！+":" 切垮 ")+fmt(Math.abs(profit)),profit>=0?"win":"lose");
+    G.stats.earned+=G.cur.gemValue;
+    if(G.cur.gemValue>G.stats.bigWin)G.stats.bigWin=G.cur.gemValue;
+    if(profit<0&&Math.abs(profit)>G.stats.bigLoss)G.stats.bigLoss=Math.abs(profit);
+    // Collection
+    if(!G.coll[gem.id]){G.coll[gem.id]={count:0,best:0};toast("📖 新玉种收录图鉴："+gem.name+"！")}
+    G.coll[gem.id].count++;
+    if(G.cur.gemValue>G.coll[gem.id].best)G.coll[gem.id].best=G.cur.gemValue;
+    if(G.cur.gemValue>G.best)G.best=G.cur.gemValue;
+    // Show result
+    setTimeout(function(){showCutResult(G.cur)},500)
+  }else{
+    showCutOverlay()
+  }
+  updateHdr();save()
+}
+
+function showCutResult(st){
+  var gem=GEMS[st.gemIdx];
+  var profit=st.gemValue-st.bought;
+  var isWin=profit>=0;
+  var h='<div style="font-size:60px;margin:10px 0">'+gem.emoji+'</div>';
+  h+='<h2 style="color:'+(isWin?"var(--jade)":"var(--red)")+'">'+gem.name+'</h2>';
+  h+='<div style="font-size:24px;color:var(--gold);margin:10px 0">💰 '+fmt(st.gemValue)+'</div>';
+  h+='<div style="font-size:16px;color:'+(isWin?"var(--jade)":"var(--red)")+'">'+(isWin?"切涨！赚了":"切垮！亏了")+' 💰'+fmt(Math.abs(profit))+'</div>';
+  h+='<div style="color:var(--dim);font-size:12px;margin:5px 0">成本：'+fmt(st.bought)+' | 产出：'+fmt(st.gemValue)+'</div>';
+  if(st.gemValue>0){
+    h+='<button class="btn btn-g btn-blk" onclick="sellGemByIdx()">💰 立即出售</button>';
+    h+='<button class="btn btn-j btn-blk" onclick="closeOv();openCarveByIdx()">🎭 送去雕刻</button>'
+  }
+  h+='<button class="btn btn-blk" style="background:none;color:var(--dim);border:1px solid #333" onclick="closeOv();renderWorkshop()">返回工坊</button>';
+  showOv(h)
+}
+
+function sellGem(invIdx){
+  var st=G.inv[invIdx];
+  var val=st.carved?st.carveValue:st.gemValue;
+  G.money+=val;G.stats.earned+=val;
+  addLog("卖出 "+GEMS[st.gemIdx].emoji+" "+GEMS[st.gemIdx].name+" 💰"+fmt(val),"work");
+  G.inv.splice(invIdx,1);
+  toast("💰 +"+fmt(val));
+  updateHdr();renderWorkshop();save()
+}
+function sellGemByIdx(){for(var i=0;i<G.inv.length;i++){if(G.inv[i]===G.cur){sellGem(i);return}}}
+function discardGem(invIdx){G.inv.splice(invIdx,1);toast("🗑️ 已丢弃");renderWorkshop();save()}
+function resellStone(){
+  var price=getResellPrice(G.cur);
+  G.money+=price;G.stats.earned+=price;
+  // Remove from inv
+  for(var i=0;i<G.inv.length;i++){if(G.inv[i]===G.cur){G.inv.splice(i,1);break}}
+  addLog("转手卖出 "+G.cur.name+" 💰"+fmt(price),"work");
+  closeOv();toast("💰 +"+fmt(price));
+  updateHdr();renderWorkshop();save()
+}
+
+// ===== CARVING =====
+function openCarve(invIdx){G.cur=G.inv[invIdx];showCarveOverlay()}
+function openCarveByIdx(){showCarveOverlay()}
+
+function showCarveOverlay(){
+  var st=G.cur;if(!st)return;
+  var gem=GEMS[st.gemIdx];
+  var h='<h2>🎭 玉雕大师</h2>';
+  h+='<div style="text-align:center;font-size:50px;margin:10px 0">'+gem.emoji+'</div>';
+  h+='<div style="text-align:center">'+gem.name+' 价值 💰'+fmt(st.gemValue)+'</div>';
+  h+='<p style="color:var(--dim);font-size:12px;margin:10px 0">选择雕刻主题，成功后价值翻倍，失败则损毁！</p>';
+  h+='<p style="color:var(--jade);font-size:12px">雕刻技能Lv.'+G.skills.carve+' — 每级+3%成功率</p>';
+  for(var i=0;i<CARVES.length;i++){
+    var c=CARVES[i];
+    var canUse=G.skills.carve>=c.ms;
+    var sr=Math.min(.95,c.sr+G.skills.carve*.03+(getSeason().mod.cb||0));
+    var cost=Math.round(st.gemValue*.2*(getSeason().mod.cd||1));
+    h+='<div class="card" style="margin:6px 0;'+(canUse?"cursor:pointer":"opacity:.4")+'"'+(canUse?' onclick="doCarve('+i+')"':'')+'">';
+    h+='<div style="display:flex;align-items:center;gap:10px">';
+    h+='<div style="font-size:28px">'+c.icon+'</div>';
+    h+='<div style="flex:1"><div style="font-weight:700">'+c.name+'</div>';
+    h+='<div style="font-size:11px;color:var(--dim)">成功率：'+Math.round(sr*100)+'% | 价值×'+c.mul;
+    if(!canUse)h+=' | 需要雕刻Lv.'+c.ms;
+    h+='</div></div>';
+    h+='<div style="text-align:right"><div class="mkt-price">💰'+fmt(cost)+'</div></div>';
+    h+='</div></div>'
+  }
+  h+='<button class="btn btn-blk" style="background:none;color:var(--dim);border:1px solid #333;margin-top:10px" onclick="closeOv()">返回</button>';
+  showOv(h)
+}
+
+function doCarve(carveIdx){
+  var st=G.cur;var c=CARVES[carveIdx];
+  var cost=Math.round(st.gemValue*.2*(getSeason().mod.cd||1));
+  if(G.money<cost){toast("💰 费用不足！");return}
+  G.money-=cost;G.stats.spent+=cost;G.stats.carved++;
+  var sr=Math.min(.95,c.sr+G.skills.carve*.03+(getSeason().mod.cb||0));
+  var success=Math.random()<sr;
+  if(success){
+    st.carved=1;st.carveTheme=c.name;
+    st.carveValue=Math.round(st.gemValue*c.mul);
+    G.stats.carveWin++;
+    addLog("雕刻"+c.name+"成功！价值×"+c.mul+" → 💰"+fmt(st.carveValue),"win");
+    addXP(20);
+    toast("🎭 雕刻成功！"+c.icon);
+    closeOv();showOv('<div style="font-size:60px">'+c.icon+'</div><h2 style="color:var(--jade)">雕刻成功！</h2><div style="font-size:20px;color:var(--gold);margin:10px 0">💰 '+fmt(st.carveValue)+'</div><p>价值从'+fmt(st.gemValue)+'提升到'+fmt(st.carveValue)+'！</p><button class="btn btn-g btn-blk" onclick="closeOv();renderWorkshop()">返回工坊</button>')
+  }else{
+    st.gemValue=0;st.gemIdx=0;
+    addLog("雕刻"+c.name+"失败！翡翠损毁...","lose");
+    toast("💔 雕刻失败，翡翠损毁...");
+    closeOv();showOv('<div style="font-size:60px">💔</div><h2 style="color:var(--red)">雕刻失败！</h2><p style="color:var(--dim)">翡翠在雕刻过程中碎裂了...</p><button class="btn btn-r btn-blk" onclick="closeOv();renderWorkshop()">返回工坊</button>')
+  }
+  updateHdr();renderWorkshop();save()
+}
+
+// ===== VAULT (INVENTORY) =====
+function renderVault(){
+  var p=document.getElementById("pnl-vault");
+  var h='<h2>📦 藏宝阁</h2>';
+  var total=0;for(var i=0;i<G.inv.length;i++){var s=G.inv[i];total+=s.carved?s.carveValue:s.gemValue}
+  h+='<div style="color:var(--gold);margin-bottom:10px">库存总值：💰'+fmt(total)+'</div>';
+  if(G.inv.length===0){h+='<p style="color:var(--dim);text-align:center;padding:20px">空空如也</p>';p.innerHTML=h;return}
+  h+='<div class="grid">';
+  for(var i=0;i<G.inv.length;i++){
+    var st=G.inv[i];
+    var gem=GEMS[st.gemIdx];
+    var val=st.carved?st.carveValue:st.gemValue;
+    h+='<div class="card">';
+    if(st.revealed>=4){
+      h+='<div style="font-size:32px">'+gem.emoji+'</div>';
+      h+='<div style="font-size:13px;font-weight:700">'+gem.name+'</div>';
+      if(st.carved)h+='<div style="color:var(--jade);font-size:11px">🎭'+st.carveTheme+'</div>';
+      h+='<div class="mkt-price">💰'+fmt(val)+'</div>';
+      if(val>0)h+='<button class="btn btn-g btn-s btn-blk" onclick="sellGem('+i+')">出售</button>';
+      else h+='<button class="btn btn-r btn-s btn-blk" onclick="discardGem('+i+')">丢弃</button>'
+    }else{
+      var ss=SSTYLES[st.origin]||SSTYLES.莫西沙;
+      h+='<div class="sp" style="background:'+ss.bg+';border:3px solid '+ss.bd+';width:40px;height:40px"></div>';
+      h+='<div style="font-size:12px">'+st.name+'</div>';
+      h+='<div style="color:var(--dim);font-size:10px">📍'+st.origin+'</div>';
+      h+='<div style="color:var(--dim);font-size:10px">未切割</div>'
+    }
+    h+='</div>'
+  }
+  h+='</div>';
+  if(G.inv.length>0){
+    var uncutCount=0;for(var i=0;i<G.inv.length;i++){if(G.inv[i].revealed<4)uncutCount++}
+    var cutCount=G.inv.length-uncutCount;
+    if(cutCount>0)h+='<button class="btn btn-g btn-blk" style="margin-top:10px" onclick="sellAllCut()">💰 一键出售所有已切割 ('+cutCount+'件)</button>'
+  }
+  p.innerHTML=h
+}
+function sellAllCut(){
+  var total=0;var kept=[];
+  for(var i=0;i<G.inv.length;i++){
+    if(G.inv[i].revealed>=4&&G.inv[i].gemValue>0){
+      total+=G.inv[i].carved?G.inv[i].carveValue:G.inv[i].gemValue
+    }else{kept.push(G.inv[i])}
+  }
+  if(total===0){toast("没有可出售的");return}
+  G.inv=kept;G.money+=total;G.stats.earned+=total;
+  addLog("一键出售 💰"+fmt(total),"work");
+  toast("💰 +"+fmt(total));
+  updateHdr();renderVault();save()
+}
+
+// ===== SKILLS =====
+function renderSkills(){
+  var p=document.getElementById("pnl-skills");
+  var h='<h2>🧠 技能天赋</h2>';
+  h+='<div style="color:var(--dim);font-size:12px;margin-bottom:10px">XP: '+G.xp+'/'+(G.level*100)+' | 等级: '+G.level+'</div>';
+  for(var i=0;i<SKILLS.length;i++){
+    var sk=SKILLS[i];var lv=G.skills[sk.id];var pct=lv/sk.max*100;
+    var cost=sk.xp*(lv+1);
+    var canUp=G.xp>=cost&&lv<sk.max;
+    h+='<div class="skill-row">';
+    h+='<div class="skill-icon">'+sk.icon+'</div>';
+    h+='<div class="skill-info">';
+    h+='<div class="skill-name">'+sk.name+'</div>';
+    h+='<div class="skill-desc">'+sk.desc+'</div>';
+    h+='<div class="skill-bar"><div class="skill-fill" style="width:'+pct+'%"></div></div>';
+    h+='</div>';
+    h+='<div class="skill-lv">Lv.'+lv+'</div>';
+    if(lv<sk.max)h+='<button class="btn btn-g btn-s"'+(canUp?'':' disabled')+' onclick="upgradeSkill(\''+sk.id+'\', '+cost+')">升级 ('+cost+'XP)</button>';
+    else h+='<span style="color:var(--jade);font-size:12px">MAX</span>';
+    h+='</div>'
+  }
+  p.innerHTML=h
+}
+function upgradeSkill(id,cost){
+  if(G.xp<cost)return;
+  G.xp-=cost;G.skills[id]++;
+  toast("⬆️ 技能升级！");
+  updateHdr();renderSkills();save()
+}
+
+// ===== SEASON =====
+function renderSeason(){
+  var p=document.getElementById("pnl-season");
+  var s=getSeason();
+  var h='<div class="season-banner"><div class="season-name">🎪 '+s.name+'</div><div class="season-desc">'+s.desc+'</div></div>';
+  h+='<h3 style="color:var(--gold)">所有赛季</h3>';
+  for(var i=0;i<SEASONS.length;i++){
+    var ss=SEASONS[i];
+    h+='<div class="card" style="margin:6px 0;'+(i===G.season%SEASONS.length?'border-color:var(--gold)':'')+'">'+
+      '<div style="font-weight:700;color:'+(i===G.season%SEASONS.length?'var(--gold)':'var(--text)')+'">'+ss.name+(i===G.season%SEASONS.length?' ← 当前':'')+'</div>'+
+      '<div style="color:var(--dim);font-size:12px">'+ss.desc+'</div></div>'
+  }
+  h+='<button class="btn btn-g btn-blk" style="margin-top:15px" onclick="nextSeason()">⏭️ 切换下一赛季</button>';
+  h+='<div style="margin-top:20px"><h3 style="color:var(--gold)">📊 赛季统计</h3>';
+  h+='<div class="stat-grid">';
+  h+='<div class="stat-box"><div class="stat-lbl">总赌石</div><div class="stat-val">'+G.stats.gambles+'</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">总投入</div><div class="stat-val">💰'+fmt(G.stats.spent)+'</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">总产出</div><div class="stat-val">💰'+fmt(G.stats.earned)+'</div></div>';
+  var roi=G.stats.spent>0?Math.round((G.stats.earned/G.stats.spent)*100):0;
+  h+='<div class="stat-box"><div class="stat-lbl">回报率</div><div class="stat-val" style="color:'+(roi>=100?'var(--jade)':'var(--red)')+'">'+roi+'%</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">最大开出</div><div class="stat-val">💰'+fmt(G.stats.bigWin)+'</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">破产次数</div><div class="stat-val" style="color:var(--red)">'+G.stats.bankrupt+'</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">雕刻成功</div><div class="stat-val">'+G.stats.carveWin+'/'+G.stats.carved+'</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">打工收入</div><div class="stat-val">💰'+fmt(G.stats.ptEarned)+'</div></div>';
+  h+='</div></div>';
+  p.innerHTML=h
+}
+function nextSeason(){G.season++;toast("🎪 赛季切换："+getSeason().name);genMarketStones();renderSeason();renderMarket();save()}
+
+// ===== ATLAS =====
+function renderAtlas(){
+  var p=document.getElementById("pnl-atlas");
+  var h='<h2>📖 收藏图鉴</h2>';
+  var found=0;for(var k in G.coll)found++;
+  h+='<div style="color:var(--dim);font-size:12px;margin-bottom:10px">已收录：'+found+'/'+GEMS.length+' 种</div>';
+  if(G.best>0)h+='<div style="text-align:center;margin:10px 0;padding:10px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:8px"><div style="font-size:11px;color:var(--dim)">🏆 镇店之宝</div><div style="font-size:20px;color:var(--gold);font-weight:700">💰'+fmt(G.best)+'</div></div>';
+  h+='<div class="coll-grid">';
+  for(var i=0;i<GEMS.length;i++){
+    var gem=GEMS[i];
+    var c=G.coll[gem.id];
+    var isFound=!!c;
+    h+='<div class="coll-item'+(isFound?' found':' locked')+'">';
+    h+='<span class="emoji">'+(isFound?gem.emoji:'❓')+'</span>';
+    h+='<div>'+(isFound?gem.name:'???')+'</div>';
+    if(isFound){
+      h+='<div style="color:var(--dim);font-size:10px">×'+c.count+'</div>';
+      h+='<div style="color:var(--gold);font-size:10px">最高💰'+fmt(c.best)+'</div>'
+    }
+    h+='</div>'
+  }
+  h+='</div>';
+  // Milestones
+  h+='<div style="margin-top:15px"><h3 style="color:var(--gold)">🏆 收藏里程碑</h3>';
+  var milestones=[{n:5,d:"永久幸运+5%",done:found>=5},{n:10,d:"永久幸运+10%",done:found>=10},{n:15,d:"永久幸运+15%+XP×2",done:found>=15}];
+  for(var i=0;i<milestones.length;i++){
+    var m=milestones[i];
+    h+='<div class="card" style="margin:4px 0"><div style="display:flex;justify-content:space-between;align-items:center">'+
+      '<div><span style="color:'+(m.done?'var(--jade)':'var(--dim)')+'">'+(m.done?'✅':'⬜')+'</span> 收集'+m.n+'种</div>'+
+      '<div style="color:'+(m.done?'var(--gold)':'var(--dim)')+';font-size:12px">'+m.d+'</div></div></div>'
+  }
+  h+='</div>';
+  p.innerHTML=h
+}
+
+// ===== LOG =====
+function renderLog(){
+  var p=document.getElementById("pnl-log");
+  var h='<h2>📊 涨跌日志</h2>';
+  h+='<div class="stat-grid">';
+  h+='<div class="stat-box"><div class="stat-lbl">总赌石</div><div class="stat-val">'+G.stats.gambles+'</div></div>';
+  h+='<div class="stat-box"><div class="stat-lbl">净盈亏</div><div class="stat-val" style="color:'+(G.stats.earned>=G.stats.spent?'var(--jade)':'var(--red)')+'">💰'+fmt(G.stats.earned-G.stats.spent)+'</div></div>';
+  h+='</div>';
+  h+='<div class="log">';
+  for(var i=0;i<G.log.length;i++){
+    var l=G.log[i];
+    h+='<div class="'+l.type+'">['+l.time+'] '+l.text+'</div>'
+  }
+  if(G.log.length===0)h+='<div style="color:var(--dim);text-align:center;padding:20px">暂无记录</div>';
+  h+='</div>';
+  p.innerHTML=h
+}
+
+// ===== EVENTS =====
+function showEvent(evt){
+  var h='<div class="evt-card"><div class="evt-title">'+evt.t+'</div><div class="evt-desc">'+evt.d+'</div><div class="evt-choices">';
+  for(var i=0;i<evt.c.length;i++){
+    h+='<button class="btn btn-g btn-s" onclick="handleEvent('+i+')">'+evt.c[i].t+'</button>'
+  }
+  h+='</div></div>';
+  showOv(h)
+}
+function handleEvent(idx){
+  var evt=EVENTS.find(function(e){return e.c.length>idx});
+  // This is simplified - in production would track which event
+  closeOv();
+  toast("📜 事件处理完毕");
+  G.stats.events++;
+  save()
+}
+
+// ===== PART TIME =====
+function doPartTime(){
+  closeOv();
+  var jobs=[{name:"🧹 打扫卫生",r:50,t:3},{name:"📦 快递分拣",r:150,t:5},{name:"🍽️ 洗碗工",r:300,t:8},{name:"🏪 摆地摊",r:400,t:7},{name:"📚 家教",r:500,t:6},{name:"🛵 跑外卖",r:600,t:8},{name:"💻 写代码",r:1500,t:12}];
+  var h='<h2>💼 兼职打工</h2><p style="color:var(--dim);font-size:12px">劳动最光荣！赚取本金重新开始</p>';
+  for(var i=0;i<jobs.length;i++){
+    var j=jobs[i];
+    h+='<div class="card" style="margin:6px 0;cursor:pointer" onclick="workJob('+i+')">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center">'+
+      '<div><div style="font-weight:700">'+j.name+'</div><div style="color:var(--dim);font-size:11px">耗时'+j.t+'秒</div></div>'+
+      '<div class="mkt-price">+💰'+fmt(j.r)+'</div></div></div>'
+  }
+  showOv(h)
+}
+var PT_JOBS=[{name:"🧹 打扫卫生",r:50,t:3},{name:"📦 快递分拣",r:150,t:5},{name:"🍽️ 洗碗工",r:300,t:8},{name:"🏪 摆地摊",r:400,t:7},{name:"📚 家教",r:500,t:6},{name:"🛵 跑外卖",r:600,t:8},{name:"💻 写代码",r:1500,t:12}];
+function workJob(idx){
+  var j=PT_JOBS[idx];
+  var h='<div style="text-align:center"><div style="font-size:60px;animation:shake .6s infinite">'+j.name.split(' ')[0]+'</div>'+
+    '<div style="color:var(--text);margin:10px 0">'+j.name.substring(2)+'中...</div>'+
+    '<div class="cut-bar"><div class="cut-fill" id="workBar"></div></div></div>';
+  showOv(h);
+  var prog=0;
+  var iv=setInterval(function(){
+    prog+=100/(j.t*10);
+    if(prog>=100){prog=100;clearInterval(iv);
+      G.money+=j.r;G.stats.pt++;G.stats.ptEarned+=j.r;
+      addLog("打工："+j.name+" +💰"+fmt(j.r),"work");
+      addXP(5);
+      updateHdr();save();
+      showOv('<div style="font-size:60px">✅</div><h2 style="color:var(--jade)">打工完成！</h2><div style="font-size:20px;color:var(--gold);margin:10px 0">+💰'+fmt(j.r)+'</div><button class="btn btn-g btn-blk" onclick="closeOv()">确定</button>');
+    }
+    var bar=document.getElementById("workBar");
+    if(bar)bar.style.width=prog+"%"
+  },100)
+}
+
+// ===== OVERLAY HELPERS =====
+function showOv(html){document.getElementById("ovMainBox").innerHTML=html;document.getElementById("ovMain").classList.add("show")}
+function closeOv(){document.getElementById("ovMain").classList.remove("show")}
+
+// ===== BANKRUPT CHECK =====
+function checkBankrupt(){
+  if(G.money<=0&&G.inv.length===0){
+    G.stats.bankrupt++;
+    addLog("💸 破产了！","lose");
+    showOv('<div style="font-size:60px;margin-bottom:10px">💸</div><h2 style="color:var(--red)">破产了！</h2><p style="color:var(--dim);margin:10px 0">钱都赔光了...<br>去打工赚钱重新来过吧！</p><button class="btn btn-j btn-blk" onclick="doPartTime()">💪 去打工</button>');
+    save()
+  }
+}
+
+// ===== TAB SYSTEM =====
+function initTabs(){
+  var tabsEl=document.getElementById("tabs");
+  var h="";
+  for(var i=0;i<TABS.length;i++)h+='<button class="tab'+(i===0?" active":"")+'" data-t="'+TABS[i].id+'" onclick="switchTab(\''+TABS[i].id+'\')">'+TABS[i].name+'</button>';
+  tabsEl.innerHTML=h
+}
+function switchTab(id){
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.toggle("active",t.dataset.t===id)});
+  document.querySelectorAll(".pnl").forEach(function(p){p.classList.remove("show")});
+  document.getElementById("pnl-"+id).classList.add("show");
+  var render={market:renderMarket,workshop:renderWorkshop,vault:renderVault,skills:renderSkills,season:renderSeason,atlas:renderAtlas,log:renderLog};
+  if(render[id])render[id]() 
+}
+
+// ===== INIT =====
+load();
+initTabs();
+genMarketStones();
+renderMarket();
+updateHdr();
+checkBankrupt();
+</script>
+</body>
+</html>

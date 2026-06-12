@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>塔防 v2.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;font-family:'Segoe UI',sans-serif}
+C{display:block;margin:0 auto}
+#hud{position:fixed;top:10px;left:10px;color:#fff;font-size:16px;text-shadow:0 0 5px rgba(0,0,0,0.8);z-index:10}
+#hud div{margin-bottom:5px}
+#towerPanel{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:10}
+.towerBtn{width:55px;height:55px;border:2px solid #fff;border-radius:10px;background:rgba(0,0,0,0.5);color:#fff;font-size:20px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.towerBtn:hover{background:rgba(255,255,255,0.2)}
+.towerBtn span{font-size:9px}
+.towerBtn.selected{border-color:#ffcc00;background:rgba(255,200,0,0.3)}
+#startScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20}
+#startScreen h1{font-size:42px;color:#ffcc00;margin-bottom:15px}
+#startScreen p{color:#aaa;font-size:15px;margin-bottom:25px;text-align:center;line-height:1.6}
+#startScreen button{padding:15px 40px;font-size:20px;background:#ff6600;color:#fff;border:none;border-radius:10px;cursor:pointer}
+#gameOver{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:20}
+#gameOver h1{font-size:36px;color:#ff4444;margin-bottom:15px}
+#gameOver p{color:#fff;font-size:18px;margin-bottom:10px}
+#gameOver button{padding:15px 40px;font-size:20px;background:#ff6600;color:#fff;border:none;border-radius:10px;cursor:pointer;margin-top:15px}
+#upgradePanel{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);border:2px solid #ffcc00;border-radius:10px;padding:10px;display:none;z-index:15;color:#fff;font-size:12px;text-align:center}
+#upgradePanel button{padding:5px 15px;margin:5px;background:#ff6600;color:#fff;border:none;border-radius:5px;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="startScreen">
+  <h1>🏰 塔防 v2.0</h1>
+  <p>建造防御塔抵御怪物入侵<br>点击塔可以升级！<br>漏掉3个就失败！<br><br>点击地图放置防御塔<br>消灭怪物获得金币</p>
+  <button onclick="startGame()">开始防御！</button>
+</div>
+<div id="gameOver">
+  <h1>🏰 基地被攻破！</h1>
+  <p>⚔️ 击杀：<span id="finalKills">0</span></p>
+  <p>🌊 坚持：<span id="finalWave">0</span>波</p>
+  <p>💰 金币：<span id="finalGold">0</span></p>
+  <p>🏆 得分：<span id="finalScore">0</span></p>
+  <button onclick="location.reload()">再来一局！</button>
+</div>
+<div id="hud">
+  <div>❤️ 基地：<span id="lives">3</span></div>
+  <div>💰 金币：<span id="gold">100</span></div>
+  <div>🌊 波次：<span id="wave">1</span></div>
+  <div>⚔️ 击杀：<span id="kills">0</span></div>
+  <div>🏆 得分：<span id="score">0</span></div>
+</div>
+<div id="upgradePanel">
+  <div id="upgradeInfo"></div>
+  <button onclick="upgradeTower()">⬆️ 升级</button>
+  <button onclick="sellTower()">💰 出售</button>
+  <button onclick="closeUpgrade()">❌ 关闭</button>
+</div>
+<div id="towerPanel">
+  <div class="towerBtn" onclick="selectTower(0)" id="btn0">🏹<span>50金</span></div>
+  <div class="towerBtn" onclick="selectTower(1)" id="btn1">❄️<span>80金</span></div>
+  <div class="towerBtn" onclick="selectTower(2)" id="btn2">🔥<span>120金</span></div>
+  <div class="towerBtn" onclick="selectTower(3)" id="btn3">⚡<span>200金</span></div>
+  <div class="towerBtn" onclick="selectTower(4)" id="btn4">💀<span>300金</span></div>
+</div>
+<canvas id="C"></canvas>
+<script>
+const C=document.getElementById('C'),X=C.getContext('2d');
+let W,H,gameState='start',gold=100,lives=3,wave=1,kills=0,score=0;
+let towers=[],enemies=[],bullets=[],particles=[];
+let selectedTower=-1,frameCount=0,spawnTimer=0,enemiesLeft=0;
+let path=[],gridSize=40,selectedTowerObj=null;
+const AC=new(window.AudioContext||window.webkitAudioContext)();
+
+// Sound effects
+function snd(freq,type,vol,dur){
+  const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,AC.currentTime);
+  g.gain.linearRampToValueAtTime(0,AC.currentTime+dur);
+  o.connect(g);g.connect(AC.destination);
+  o.start();o.stop(AC.currentTime+dur);
+}
+
+// Tower types
+const TOWERS=[
+  {name:'弓箭塔',icon:'🏹',cost:50,damage:15,range:130,rate:25,color:'#8B4513',bulletColor:'#ffcc00',upgCost:40},
+  {name:'冰冻塔',icon:'❄️',cost:80,damage:8,range:110,rate:40,color:'#4488ff',bulletColor:'#88ccff',slow:0.5,upgCost:60},
+  {name:'火焰塔',icon:'🔥',cost:120,damage:25,range:100,rate:20,color:'#ff4400',bulletColor:'#ff8800',upgCost:80},
+  {name:'雷电塔',icon:'⚡',cost:200,damage:50,range:160,rate:50,color:'#ffcc00',bulletColor:'#ffff00',chain:3,upgCost:150},
+  {name:'毒液塔',icon:'💀',cost:300,damage:10,range:120,rate:15,color:'#00ff00',bulletColor:'#00ff00',poison:2,upgCost:200}
+];
+
+// Enemy types
+const ENEMY_TYPES=[
+  {name:'小兵',icon:'👾',hp:40,speed:1.2,gold:10,score:10,color:'#44ff44'},
+  {name:'战士',icon:'⚔️',hp:80,speed:0.9,gold:20,score:25,color:'#ff8844'},
+  {name:'坦克',icon:'🛡️',hp:200,speed:0.5,gold:40,score:50,color:'#888888'},
+  {name:'刺客',icon:'🗡️',hp:50,speed:2.5,gold:30,score:40,color:'#ff44ff'},
+  {name:'法师',icon:'🧙',hp:60,speed:1,gold:35,score:45,color:'#8844ff'},
+  {name:'Boss',icon:'👹',hp:800,speed:0.3,gold:150,score:200,color:'#ff0000'}
+];
+
+function resize(){
+  W=C.width=window.innerWidth;
+  H=C.height=window.innerHeight;
+  generatePath();
+}
+window.addEventListener('resize',resize);
+resize();
+
+function generatePath(){
+  path=[];
+  const segments=5;
+  const segH=H/(segments+1);
+  let x=50,y=0;
+  path.push({x,y});
+  for(let i=0;i<segments;i++){
+    y+=segH;
+    x=i%2===0?W-80:80;
+    path.push({x,y});
+  }
+  path.push({x:x,y:H});
+}
+
+function startGame(){
+  if(AC.state==='suspended')AC.resume();
+  document.getElementById('startScreen').style.display='none';
+  gameState='play';gold=100;lives=3;wave=1;kills=0;score=0;
+  towers=[];enemies=[];bullets=[];particles=[];
+  frameCount=0;spawnTimer=0;enemiesLeft=5;
+  updateHUD();
+  loop();
+}
+
+function selectTower(idx){
+  if(selectedTower===idx){selectedTower=-1}
+  else{selectedTower=idx}
+  selectedTowerObj=null;
+  document.getElementById('upgradePanel').style.display='none';
+  document.querySelectorAll('.towerBtn').forEach((b,i)=>{
+    b.classList.toggle('selected',i===selectedTower);
+  });
+}
+
+function closeUpgrade(){
+  selectedTowerObj=null;
+  document.getElementById('upgradePanel').style.display='none';
+}
+
+function upgradeTower(){
+  if(!selectedTowerObj)return;
+  const t=selectedTowerObj;
+  const type=TOWERS[t.type];
+  const cost=Math.floor(type.upgCost*t.level);
+  if(gold<cost)return;
+  gold-=cost;
+  t.level++;
+  t.damage*=1.5;
+  t.range+=10;
+  t.rate=Math.max(5,t.rate-2);
+  snd(800,'sine',0.2,0.15);snd(1200,'sine',0.15,0.1);
+  addParticles(t.x,t.y,'#ffcc00',15);
+  updateHUD();
+  showUpgradeInfo(t);
+}
+
+function sellTower(){
+  if(!selectedTowerObj)return;
+  const t=selectedTowerObj;
+  const type=TOWERS[t.type];
+  const refund=Math.floor(type.cost*0.7*t.level);
+  gold+=refund;
+  addParticles(t.x,t.y,'#ff0',10);
+  towers.splice(towers.indexOf(t),1);
+  selectedTowerObj=null;
+  document.getElementById('upgradePanel').style.display='none';
+  snd(400,'square',0.15,0.1);
+  updateHUD();
+}
+
+function showUpgradeInfo(t){
+  const type=TOWERS[t.type];
+  const cost=Math.floor(type.upgCost*t.level);
+  const refund=Math.floor(type.cost*0.7*t.level);
+  document.getElementById('upgradeInfo').innerHTML=
+    '<div style="font-size:16px;margin-bottom:5px">'+type.icon+' '+type.name+' Lv.'+t.level+'</div>'+
+    '<div>伤害：'+Math.floor(t.damage)+'</div>'+
+    '<div>范围：'+Math.floor(t.range)+'</div>'+
+    '<div>升级：'+cost+'金 | 出售：+'+refund+'金</div>';
+  document.getElementById('upgradePanel').style.display='block';
+}
+
+C.addEventListener('click',e=>{
+  if(gameState!=='play')return;
+  const mx=e.clientX,my=e.clientY;
+  
+  // Check if clicking on tower
+  for(const t of towers){
+    if(Math.hypot(mx-t.x,my-t.y)<20){
+      selectedTowerObj=t;
+      selectedTower=-1;
+      document.querySelectorAll('.towerBtn').forEach(b=>b.classList.remove('selected'));
+      showUpgradeInfo(t);
+      snd(600,'sine',0.1,0.05);
+      return;
+    }
+  }
+  
+  if(selectedTower<0)return;
+  const type=TOWERS[selectedTower];
+  if(gold<type.cost)return;
+  
+  const gx=Math.round(mx/gridSize)*gridSize;
+  const gy=Math.round(my/gridSize)*gridSize;
+  
+  for(const p of path){
+    if(Math.hypot(gx-p.x,gy-p.y)<gridSize)return;
+  }
+  for(const t of towers){
+    if(Math.hypot(gx-t.x,gy-t.y)<gridSize)return;
+  }
+  
+  towers.push({x:gx,y:gy,type:selectedTower,cooldown:0,level:1,angle:0,damage:TOWERS[selectedTower].damage,range:TOWERS[selectedTower].range,rate:TOWERS[selectedTower].rate});
+  gold-=type.cost;
+  snd(500,'sine',0.15,0.1);
+  updateHUD();
+  addParticles(gx,gy,type.color,10);
+});
+
+function spawnEnemy(){
+  if(enemiesLeft<=0)return;
+  enemiesLeft--;
+  
+  let idx;
+  if(wave<3)idx=0;
+  else if(wave<5)idx=Math.floor(Math.random()*2);
+  else if(wave<8)idx=Math.floor(Math.random()*3);
+  else if(wave<12)idx=Math.floor(Math.random()*4);
+  else idx=Math.floor(Math.random()*5);
+  
+  // Boss every 5 waves
+  if(wave%5===0&&enemiesLeft===0)idx=5;
+  
+  const type=ENEMY_TYPES[idx];
+  const hpMult=1+(wave-1)*0.4;
+  
+  enemies.push({
+    x:path[0].x,y:path[0].y,
+    pathIdx:0,
+    type:idx,
+    hp:type.hp*hpMult,
+    maxHp:type.hp*hpMult,
+    speed:type.speed,
+    slowTimer:0,poisonTimer:0,poisonDmg:0
+  });
+}
+
+function addParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*4+2;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:20+Math.random()*10,color,sz:Math.random()*3+1});
+  }
+}
+
+function update(){
+  frameCount++;
+  
+  // Spawn enemies
+  spawnTimer++;
+  const spawnRate=Math.max(15,50-wave*3);
+  if(spawnTimer>=spawnRate&&enemiesLeft>0){
+    spawnTimer=0;
+    spawnEnemy();
+  }
+  
+  // Next wave
+  if(enemiesLeft<=0&&enemies.length===0){
+    wave++;
+    enemiesLeft=5+wave*2;
+    gold+=30+wave*15;
+    score+=100;
+    snd(600,'sine',0.2,0.15);snd(800,'sine',0.15,0.1);
+    updateHUD();
+  }
+  
+  // Update towers
+  for(const t of towers){
+    const type=TOWERS[t.type];
+    t.cooldown--;
+    
+    let target=null,minDist=t.range+1;
+    for(const e of enemies){
+      const dist=Math.hypot(e.x-t.x,e.y-t.y);
+      if(dist<minDist){minDist=dist;target=e}
+    }
+    
+    if(target){
+      t.angle=Math.atan2(target.y-t.y,target.x-t.x);
+      
+      if(t.cooldown<=0){
+        t.cooldown=t.rate;
+        
+        bullets.push({
+          x:t.x,y:t.y,
+          vx:Math.cos(t.angle)*10,vy:Math.sin(t.angle)*10,
+          damage:t.damage,
+          type:t.type,
+          target:target,
+          life:60
+        });
+        
+        snd(800+Math.random()*200,'square',0.08,0.05);
+        
+        if(type.slow)target.slowTimer=60;
+        if(type.poison){target.poisonTimer=120;target.poisonDmg=type.poison*(1+(t.level-1)*0.5)}
+      }
+    }
+  }
+  
+  // Update bullets
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i];
+    
+    if(b.target&&b.target.hp>0){
+      const dx=b.target.x-b.x,dy=b.target.y-b.y;
+      const dist=Math.hypot(dx,dy);
+      b.vx+=dx/dist*0.8;b.vy+=dy/dist*0.8;
+      const spd=Math.hypot(b.vx,b.vy);
+      if(spd>10){b.vx=b.vx/spd*10;b.vy=b.vy/spd*10}
+    }
+    
+    b.x+=b.vx;b.y+=b.vy;b.life--;
+    
+    for(let j=enemies.length-1;j>=0;j--){
+      const e=enemies[j];
+      if(Math.hypot(b.x-e.x,b.y-e.y)<15){
+        e.hp-=b.damage;
+        addParticles(b.x,b.y,TOWERS[b.type].bulletColor,5);
+        
+        // Chain lightning
+        if(TOWERS[b.type].chain){
+          let chainCount=TOWERS[b.type].chain;
+          let lastX=b.x,lastY=b.y;
+          for(const e2 of enemies){
+            if(chainCount<=0)break;
+            if(e2!==e&&Math.hypot(e2.x-lastX,e2.y-lastY)<120){
+              e2.hp-=b.damage*0.6;
+              chainCount--;
+              lastX=e2.x;lastY=e2.y;
+              addParticles(e2.x,e2.y,'#ffff00',3);
+            }
+          }
+        }
+        
+        if(e.hp<=0){
+          gold+=ENEMY_TYPES[e.type].gold;
+          score+=ENEMY_TYPES[e.type].score;
+          kills++;
+          addParticles(e.x,e.y,ENEMY_TYPES[e.type].color,15);
+          snd(200,'sawtooth',0.15,0.1);
+          enemies.splice(j,1);
+          updateHUD();
+        }
+        
+        bullets.splice(i,1);
+        break;
+      }
+    }
+    
+    if(b.life<=0)bullets.splice(i,1);
+  }
+  
+  // Update enemies
+  for(let i=enemies.length-1;i>=0;i--){
+    const e=enemies[i];
+    
+    const spdMult=e.slowTimer>0?0.5:1;
+    if(e.slowTimer>0)e.slowTimer--;
+    
+    // Poison damage
+    if(e.poisonTimer>0){
+      e.poisonTimer--;
+      if(frameCount%15===0)e.hp-=e.poisonDmg;
+    }
+    
+    const target=path[e.pathIdx+1];
+    if(!target){
+      lives--;
+      enemies.splice(i,1);
+      snd(100,'sawtooth',0.3,0.2);
+      updateHUD();
+      if(lives<=0){
+        gameState='over';
+        document.getElementById('finalKills').textContent=kills;
+        document.getElementById('finalWave').textContent=wave;
+        document.getElementById('finalGold').textContent=gold;
+        document.getElementById('finalScore').textContent=score;
+        document.getElementById('gameOver').style.display='flex';
+        return;
+      }
+      continue;
+    }
+    
+    const dx=target.x-e.x,dy=target.y-e.y;
+    const dist=Math.hypot(dx,dy);
+    if(dist<5)e.pathIdx++;
+    else{e.x+=dx/dist*e.speed*spdMult;e.y+=dy/dist*e.speed*spdMult}
+  }
+  
+  // Update particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.05;p.life--;
+    if(p.life<=0)particles.splice(i,1);
+  }
+}
+
+function updateHUD(){
+  document.getElementById('lives').textContent=lives;
+  document.getElementById('gold').textContent=gold;
+  document.getElementById('wave').textContent=wave;
+  document.getElementById('kills').textContent=kills;
+  document.getElementById('score').textContent=score;
+}
+
+function draw(){
+  X.fillStyle='#2d5016';
+  X.fillRect(0,0,W,H);
+  
+  // Grid
+  X.strokeStyle='rgba(255,255,255,0.05)';
+  X.lineWidth=1;
+  for(let x=0;x<W;x+=gridSize){X.beginPath();X.moveTo(x,0);X.lineTo(x,H);X.stroke()}
+  for(let y=0;y<H;y+=gridSize){X.beginPath();X.moveTo(0,y);X.lineTo(W,y);X.stroke()}
+  
+  // Path
+  X.strokeStyle='#8B7355';
+  X.lineWidth=gridSize;
+  X.lineCap='round';X.lineJoin='round';
+  X.beginPath();X.moveTo(path[0].x,path[0].y);
+  for(let i=1;i<path.length;i++)X.lineTo(path[i].x,path[i].y);
+  X.stroke();
+  
+  // Path direction arrows
+  X.fillStyle='rgba(255,255,255,0.15)';
+  X.font='16px sans-serif';
+  for(let i=0;i<path.length-1;i++){
+    const mx=(path[i].x+path[i+1].x)/2,my=(path[i].y+path[i+1].y)/2;
+    const ang=Math.atan2(path[i+1].y-path[i].y,path[i+1].x-path[i].x);
+    X.save();X.translate(mx,my);X.rotate(ang);
+    X.fillText('→',-8,5);
+    X.restore();
+  }
+  
+  // Towers
+  for(const t of towers){
+    const type=TOWERS[t.type];
+    
+    // Range circle (if selected)
+    if(t===selectedTowerObj){
+      X.strokeStyle='rgba(255,200,0,0.3)';
+      X.lineWidth=2;
+      X.beginPath();X.arc(t.x,t.y,t.range,0,Math.PI*2);X.stroke();
+    }
+    
+    // Base
+    X.fillStyle=type.color;
+    X.fillRect(t.x-18,t.y-18,36,36);
+    X.fillStyle='rgba(0,0,0,0.3)';
+    X.fillRect(t.x-16,t.y-16,32,32);
+    
+    // Level stars
+    X.fillStyle='#ffcc00';
+    X.font='8px sans-serif';
+    X.textAlign='center';
+    for(let i=0;i<t.level;i++){
+      X.fillText('★',t.x-10+i*8,t.y+22);
+    }
+    
+    // Icon
+    X.save();X.translate(t.x,t.y);X.rotate(t.angle);
+    X.font='22px sans-serif';X.textAlign='center';X.textBaseline='middle';
+    X.fillText(type.icon,0,0);
+    X.restore();
+  }
+  
+  // Enemies
+  for(const e of enemies){
+    const type=ENEMY_TYPES[e.type];
+    
+    // Shadow
+    X.fillStyle='rgba(0,0,0,0.3)';
+    X.beginPath();X.ellipse(e.x,e.y+12,12,5,0,0,Math.PI*2);X.fill();
+    
+    // Poison effect
+    if(e.poisonTimer>0){
+      X.strokeStyle='rgba(0,255,0,0.5)';
+      X.lineWidth=2;
+      X.beginPath();X.arc(e.x,e.y,15,0,Math.PI*2);X.stroke();
+    }
+    
+    // Body
+    X.fillStyle=type.color;
+    X.beginPath();X.arc(e.x,e.y,12,0,Math.PI*2);X.fill();
+    
+    // Icon
+    X.font='16px sans-serif';X.textAlign='center';X.textBaseline='middle';
+    X.fillText(type.icon,e.x,e.y);
+    
+    // HP bar
+    const hpPct=e.hp/e.maxHp;
+    X.fillStyle='#333';
+    X.fillRect(e.x-12,e.y-20,24,4);
+    X.fillStyle=hpPct>0.5?'#0f0':hpPct>0.25?'#ff0':'#f00';
+    X.fillRect(e.x-12,e.y-20,24*hpPct,4);
+  }
+  
+  // Bullets
+  for(const b of bullets){
+    X.fillStyle=TOWERS[b.type].bulletColor;
+    X.shadowColor=TOWERS[b.type].bulletColor;
+    X.shadowBlur=8;
+    X.beginPath();X.arc(b.x,b.y,4,0,Math.PI*2);X.fill();
+    X.shadowBlur=0;
+  }
+  
+  // Particles
+  for(const p of particles){
+    X.save();X.globalAlpha=p.life/30;
+    X.fillStyle=p.color;
+    X.beginPath();X.arc(p.x,p.y,p.sz,0,Math.PI*2);X.fill();
+    X.restore();
+  }
+  
+  // Base
+  X.fillStyle='#ff4444';
+  X.fillRect(path[path.length-1].x-25,path[path.length-1].y-25,50,50);
+  X.fillStyle='#fff';
+  X.font='28px sans-serif';X.textAlign='center';X.textBaseline='middle';
+  X.fillText('🏠',path[path.length-1].x,path[path.length-1].y);
+  
+  // Wave announcement
+  if(frameCount<120){
+    X.save();
+    X.font='bold 36px sans-serif';X.textAlign='center';
+    X.fillStyle='rgba(255,200,0,'+(1-Math.min(frameCount/60,1))+')';
+    X.fillText('第 '+wave+' 波',W/2,H/2);
+    X.restore();
+  }
+  
+  // Enemies left
+  X.fillStyle='#fff';
+  X.font='12px sans-serif';
+  X.textAlign='right';
+  X.fillText('剩余敌人：'+(enemiesLeft+enemies.length),W-10,20);
+}
+
+function loop(){
+  if(gameState!=='play')return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>游戏合集</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;color:#e0e0e0;font-family:'Microsoft YaHei','PingFang SC',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+h1{font-size:clamp(28px,6vw,48px);background:linear-gradient(135deg,#ffd700,#ff8c00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:40px;letter-spacing:4px}
+.grid{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;max-width:700px}
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:32px 28px;text-align:center;width:280px;transition:all .3s;cursor:pointer;text-decoration:none;color:inherit}
+.card:hover{border-color:#ffd700;transform:translateY(-8px);box-shadow:0 20px 50px rgba(255,215,0,.1)}
+.card .icon{font-size:56px;margin-bottom:16px}
+.card .name{font-size:20px;font-weight:700;color:#ffd700;margin-bottom:8px}
+.card .desc{font-size:13px;color:#888;line-height:1.6}
+footer{margin-top:48px;color:#444;font-size:11px;letter-spacing:2px}
+</style>
+</head>
+<body>
+<h1>🎮 游戏合集</h1>
+<div class="grid">
+  <a class="card" href="game/gambling-stone.html">
+    <div class="icon">🪨</div>
+    <div class="name">赌石大亨</div>
+    <div class="desc">一刀穷一刀富<br>翡翠原石在线赌石</div>
+  </a>
+  <a class="card" href="game/塔防.html">
+    <div class="icon">🏰</div>
+    <div class="name">塔防</div>
+    <div class="desc">策略塔防<br>守卫你的阵地</div>
+  </a>
+</div>
+<footer>Powered by GitHub Pages</footer>
+</body>
+</html>
