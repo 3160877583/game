@@ -41,9 +41,9 @@ canvas{display:block;background:#111;border-radius:8px}
 .weapon-opt .wo-name{font-weight:700;margin-top:6px}
 .weapon-opt .wo-desc{font-size:11px;color:#888;margin-top:4px}
 .controls{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 16px;border-radius:20px;font-size:11px;color:#666;z-index:10}
-.joystick{position:fixed;bottom:80px;left:60px;width:120px;height:120px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);border-radius:50%;z-index:15;touch-action:none;display:none}
-.joystick-inner{position:absolute;width:50px;height:50px;background:rgba(255,255,255,.25);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
-@media(hover:none)and(pointer:coarse){.joystick{display:block}.controls{display:none}}
+.joystick{position:fixed;bottom:80px;left:60px;width:140px;height:140px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);border-radius:50%;z-index:15;touch-action:none}
+.joystick-inner{position:absolute;width:60px;height:60px;background:rgba(255,255,255,.35);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+@media(hover:hover){.joystick{display:none}}
 </style>
 </head>
 <body>
@@ -586,6 +586,19 @@ function draw(){
 // ===== GAME LOOP =====
 function gameLoop(){
   if(!gameRunning||shopOpen)return;
+  // Canvas touch movement
+  if(touchCanvasActive){
+    var tdx=touchTargetX-x,tdy=touchTargetY-y;
+    var td=Math.hypot(tdx,tdy);
+    if(td>10){
+      var spd=getSpeed();
+      x+=tdx/td*spd;
+      y+=tdy/td*spd;
+      var margin=20;
+      x=Math.max(margin,Math.min(W-margin,x));
+      y=Math.max(margin,Math.min(H-margin,y));
+    }
+  }
   updatePlayer();
   spawnWaveEnemies();
   updateCombat();
@@ -637,10 +650,10 @@ joyEl.addEventListener('touchend',function(e){
 function moveJoy(t){
   var dx=t.clientX-joyCenterX;
   var dy=t.clientY-joyCenterY;
-  var maxR=35;
+  var maxR=40;
   var d=Math.hypot(dx,dy);
   if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR}
-  joyInner.style.transform='translate('+(dx-25)+'px,'+(dy-25)+'px)';
+  joyInner.style.transform='translate('+(dx-30)+'px,'+(dy-30)+'px)';
   touchDx=dx/maxR;
   touchDy=dy/maxR;
 }
@@ -653,7 +666,7 @@ updatePlayer=function(){
   if(keys['ArrowRight']||keys['KeyD'])dx=1;
   if(keys['ArrowUp']||keys['KeyW'])dy=-1;
   if(keys['ArrowDown']||keys['KeyS'])dy=1;
-  if(joyActive){dx+=touchDx;dy+=touchDy}
+  if(joyActive&&(touchDx||touchDy)){dx+=touchDx;dy+=touchDy}
   if(dx||dy){
     var len=Math.sqrt(dx*dx+dy*dy);
     var spd=getSpeed();
@@ -664,6 +677,26 @@ updatePlayer=function(){
     y=Math.max(margin,Math.min(H-margin,y));
   }
 };
+
+// Touch anywhere on canvas to move
+cvs.addEventListener('touchstart',function(e){
+  e.preventDefault();
+  var t=e.touches[0];
+  touchTargetX=t.clientX;touchTargetY=t.clientY;
+  touchCanvasActive=true;
+},{passive:false});
+cvs.addEventListener('touchmove',function(e){
+  e.preventDefault();
+  if(touchCanvasActive){
+    var t=e.touches[0];
+    touchTargetX=t.clientX;touchTargetY=t.clientY;
+  }
+},{passive:false});
+cvs.addEventListener('touchend',function(e){
+  e.preventDefault();
+  touchCanvasActive=false;
+},{passive:false});
+var touchCanvasActive=false,touchTargetX=0,touchTargetY=0;
 
 // ===== INIT DRAW =====
 draw();
