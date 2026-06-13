@@ -249,7 +249,7 @@ function toast(m){var t=document.getElementById("toast");t.textContent=m;t.class
 function addLog(text,type){G.log.unshift({text:text,type:type||"info",time:new Date().toLocaleTimeString()});if(G.log.length>200)G.log.pop()}
 
 function addXP(n){G.xp+=n;var needed=G.level*100;while(G.xp>=needed){G.xp-=needed;G.level++;toast("🎉 升级！当前等级："+G.level);needed=G.level*100}updateHdr()}
-function updateHdr(){document.getElementById("hdrMoney").textContent="💰 "+fmt(G.money);document.getElementById("hdrXp").textContent="Lv."+G.level+" XP:"+G.xp}
+function updateHdr(){document.getElementById("hdrMoney").textContent="💰 "+fmt(G.money);document.getElementById("hdrXp").textContent="Lv."+G.level+" XP:"+G.xp;document.getElementById("washBtn").style.display=G.money<2000?"inline-block":"none"}
 
 function getSeason(){return SEASONS[G.season%SEASONS.length]}
 
