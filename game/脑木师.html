@@ -86,249 +86,50 @@ var TICK=1000/60;
 
 // ===== AUDIO =====
 var audioCtx=null;
-function initAudio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}
-
-// Noise generator
-function createNoise(dur){
-  var bufSize=audioCtx.sampleRate*dur;
-  var buf=audioCtx.createBuffer(1,bufSize,audioCtx.sampleRate);
-  var data=buf.getChannelData(0);
-  for(var i=0;i<bufSize;i++)data[i]=Math.random()*2-1;
-  var src=audioCtx.createBufferSource();
-  src.buffer=buf;
-  return src;
+var soundBuffers={};
+function initAudio(){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  // Load sound effects
+  loadSound('sausage','https://assets.mixkit.co/active_storage/sfx/263/263-preview.mp3');
+  loadSound('staff','https://assets.mixkit.co/active_storage/sfx/1486/1486-preview.mp3');
+  loadSound('wood','https://assets.mixkit.co/active_storage/sfx/1485/1485-preview.mp3');
+  loadSound('hit','https://assets.mixkit.co/active_storage/sfx/1474/1474-preview.mp3');
+  loadSound('kill','https://assets.mixkit.co/active_storage/sfx/1465/1465-preview.mp3');
+  loadSound('hurt','https://assets.mixkit.co/active_storage/sfx/1471/1471-preview.mp3');
+  loadSound('buy','https://assets.mixkit.co/active_storage/sfx/869/869-preview.mp3');
+  loadSound('wave','https://assets.mixkit.co/active_storage/sfx/166/166-preview.mp3');
+  loadSound('boss','https://assets.mixkit.co/active_storage/sfx/3115/3115-preview.mp3');
 }
 
-// Envelope helper
-function env(param,vals,t){
-  param.setValueAtTime(vals[0],t);
-  for(var i=1;i<vals.length;i++){
-    param.exponentialRampToValueAtTime(Math.max(vals[i],0.001),t+i*0.02);
-  }
+function loadSound(name,url){
+  fetch(url)
+    .then(r=>r.arrayBuffer())
+    .then(buf=>audioCtx.decodeAudioData(buf))
+    .then(decoded=>{soundBuffers[name]=decoded;})
+    .catch(e=>console.log('Load sound failed:',name,e));
 }
 
-// 🌭 红肠：厚重肉感 + 湿润打击
-function sndSausage(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  // Low thud
-  var o1=audioCtx.createOscillator();
-  var g1=audioCtx.createGain();
-  o1.type='sine';
-  o1.frequency.setValueAtTime(180,t);
-  o1.frequency.exponentialRampToValueAtTime(40,t+0.1);
-  g1.gain.setValueAtTime(0.4,t);
-  g1.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-  o1.connect(g1);g1.connect(audioCtx.destination);
-  o1.start(t);o1.stop(t+0.15);
-  // Wet snap
-  var n=createNoise(0.06);
-  var ng=audioCtx.createGain();
-  var nf=audioCtx.createBiquadFilter();
-  nf.type='bandpass';
-  nf.frequency.setValueAtTime(2000,t);
-  nf.Q.setValueAtTime(2,t);
-  ng.gain.setValueAtTime(0.3,t);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.06);
-  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.06);
-  // Body resonance
-  var o2=audioCtx.createOscillator();
-  var g2=audioCtx.createGain();
-  o2.type='triangle';
-  o2.frequency.setValueAtTime(120,t);
-  o2.frequency.exponentialRampToValueAtTime(60,t+0.08);
-  g2.gain.setValueAtTime(0.2,t);
-  g2.gain.exponentialRampToValueAtTime(0.001,t+0.1);
-  o2.connect(g2);g2.connect(audioCtx.destination);
-  o2.start(t);o2.stop(t+0.1);
+function playSound(name){
+  if(!audioCtx||!soundBuffers[name])return;
+  try{
+    var src=audioCtx.createBufferSource();
+    src.buffer=soundBuffers[name];
+    var gain=audioCtx.createGain();
+    gain.gain.setValueAtTime(0.3,audioCtx.currentTime);
+    src.connect(gain);gain.connect(audioCtx.destination);
+    src.start();
+  }catch(e){}
 }
 
-// 🔮 法杖：魔法水晶 + 高频闪烁
-function sndStaff(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  // Crystal shimmer
-  var freqs=[800,1200,1600,2000];
-  for(var i=0;i<freqs.length;i++){
-    var o=audioCtx.createOscillator();
-    var g=audioCtx.createGain();
-    o.type='sine';
-    o.frequency.setValueAtTime(freqs[i],t+i*0.03);
-    g.gain.setValueAtTime(0.12,t+i*0.03);
-    g.gain.exponentialRampToValueAtTime(0.001,t+i*0.03+0.15);
-    o.connect(g);g.connect(audioCtx.destination);
-    o.start(t+i*0.03);o.stop(t+i*0.03+0.15);
-  }
-  // Whoosh
-  var n=createNoise(0.12);
-  var ng=audioCtx.createGain();
-  var nf=audioCtx.createBiquadFilter();
-  nf.type='bandpass';
-  nf.frequency.setValueAtTime(3000,t);
-  nf.frequency.exponentialRampToValueAtTime(1000,t+0.12);
-  nf.Q.setValueAtTime(5,t);
-  ng.gain.setValueAtTime(0.15,t);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.12);
-  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.12);
-}
-
-// 🪓 浮木：斧头挥砍
-function sndWood(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  // Swoosh
-  var n=createNoise(0.15);
-  var ng=audioCtx.createGain();
-  var nf=audioCtx.createBiquadFilter();
-  nf.type='bandpass';
-  nf.frequency.setValueAtTime(4000,t);
-  nf.frequency.exponentialRampToValueAtTime(800,t+0.15);
-  nf.Q.setValueAtTime(3,t);
-  ng.gain.setValueAtTime(0.01,t);
-  ng.gain.linearRampToValueAtTime(0.3,t+0.04);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.15);
-  // Impact
-  var o1=audioCtx.createOscillator();
-  var g1=audioCtx.createGain();
-  o1.type='sine';
-  o1.frequency.setValueAtTime(200,t+0.04);
-  o1.frequency.exponentialRampToValueAtTime(60,t+0.12);
-  g1.gain.setValueAtTime(0.4,t+0.04);
-  g1.gain.exponentialRampToValueAtTime(0.001,t+0.15);
-  o1.connect(g1);g1.connect(audioCtx.destination);
-  o1.start(t+0.04);o1.stop(t+0.15);
-  // Sharp crack
-  var o2=audioCtx.createOscillator();
-  var g2=audioCtx.createGain();
-  o2.type='sawtooth';
-  o2.frequency.setValueAtTime(300,t+0.04);
-  o2.frequency.exponentialRampToValueAtTime(100,t+0.08);
-  g2.gain.setValueAtTime(0.15,t+0.04);
-  g2.gain.exponentialRampToValueAtTime(0.001,t+0.1);
-  o2.connect(g2);g2.connect(audioCtx.destination);
-  o2.start(t+0.04);o2.stop(t+0.1);
-}
-
-// 命中
-function sndHit(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  var n=createNoise(0.04);
-  var ng=audioCtx.createGain();
-  var nf=audioCtx.createBiquadFilter();
-  nf.type='highpass';
-  nf.frequency.setValueAtTime(2000,t);
-  ng.gain.setValueAtTime(0.2,t);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.04);
-  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.04);
-  var o=audioCtx.createOscillator();
-  var g=audioCtx.createGain();
-  o.type='square';
-  o.frequency.setValueAtTime(300,t);
-  o.frequency.exponentialRampToValueAtTime(100,t+0.05);
-  g.gain.setValueAtTime(0.15,t);
-  g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
-  o.connect(g);g.connect(audioCtx.destination);
-  o.start(t);o.stop(t+0.05);
-}
-
-// 击杀
-function sndKill(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  [300,450,600].forEach(function(f,i){
-    var o=audioCtx.createOscillator();
-    var g=audioCtx.createGain();
-    o.type='square';
-    o.frequency.setValueAtTime(f,t+i*0.06);
-    g.gain.setValueAtTime(0.12,t+i*0.06);
-    g.gain.exponentialRampToValueAtTime(0.001,t+i*0.06+0.08);
-    o.connect(g);g.connect(audioCtx.destination);
-    o.start(t+i*0.06);o.stop(t+i*0.06+0.08);
-  });
-}
-
-// 受伤
-function sndHurt(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  var n=createNoise(0.1);
-  var ng=audioCtx.createGain();
-  var nf=audioCtx.createBiquadFilter();
-  nf.type='lowpass';
-  nf.frequency.setValueAtTime(1500,t);
-  ng.gain.setValueAtTime(0.25,t);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.1);
-  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.1);
-  var o=audioCtx.createOscillator();
-  var g=audioCtx.createGain();
-  o.type='sawtooth';
-  o.frequency.setValueAtTime(150,t);
-  o.frequency.exponentialRampToValueAtTime(80,t+0.12);
-  g.gain.setValueAtTime(0.2,t);
-  g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
-  o.connect(g);g.connect(audioCtx.destination);
-  o.start(t);o.stop(t+0.12);
-}
-
-// 购买
-function sndBuy(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  [500,700].forEach(function(f,i){
-    var o=audioCtx.createOscillator();
-    var g=audioCtx.createGain();
-    o.type='sine';
-    o.frequency.setValueAtTime(f,t+i*0.08);
-    g.gain.setValueAtTime(0.12,t+i*0.08);
-    g.gain.exponentialRampToValueAtTime(0.001,t+i*0.08+0.1);
-    o.connect(g);g.connect(audioCtx.destination);
-    o.start(t+i*0.08);o.stop(t+i*0.08+0.1);
-  });
-}
-
-// 波次
-function sndWave(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  [400,600,800].forEach(function(f,i){
-    var o=audioCtx.createOscillator();
-    var g=audioCtx.createGain();
-    o.type='sine';
-    o.frequency.setValueAtTime(f,t+i*0.15);
-    g.gain.setValueAtTime(0.1,t+i*0.15);
-    g.gain.exponentialRampToValueAtTime(0.001,t+i*0.15+0.15);
-    o.connect(g);g.connect(audioCtx.destination);
-    o.start(t+i*0.15);o.stop(t+i*0.15+0.15);
-  });
-}
-
-// Boss
-function sndBoss(){
-  if(!audioCtx)return;
-  var t=audioCtx.currentTime;
-  var o=audioCtx.createOscillator();
-  var g=audioCtx.createGain();
-  o.type='sawtooth';
-  o.frequency.setValueAtTime(150,t);
-  o.frequency.exponentialRampToValueAtTime(60,t+0.4);
-  g.gain.setValueAtTime(0.2,t);
-  g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
-  o.connect(g);g.connect(audioCtx.destination);
-  o.start(t);o.stop(t+0.4);
-  var n=createNoise(0.3);
-  var ng=audioCtx.createGain();
-  ng.gain.setValueAtTime(0.15,t);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.3);
-  n.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.3);
-}
+function sndSausage(){playSound('sausage')}
+function sndStaff(){playSound('staff')}
+function sndWood(){playSound('wood')}
+function sndHit(){playSound('hit')}
+function sndKill(){playSound('kill')}
+function sndHurt(){playSound('hurt')}
+function sndBuy(){playSound('buy')}
+function sndWave(){playSound('wave')}
+function sndBoss(){playSound('boss')}
 var PLAYER_SPEED=3;
 var PLAYER_BASE_HP=100;
 var ENEMY_SPAWN_DIST=400;
