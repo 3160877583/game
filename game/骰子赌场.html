@@ -510,7 +510,7 @@ function triggerEvent(){
 }
 
 // Init
-if(!loadGame()){startFloor()}else{updateUI();const scrId=state.curEnemy?'Battle':'Event';showScr(scrId);if(state.curEnemy)showEnemy()}
+if(!loadGame()){startFloor()}else{updateUI();const scrId=state.curEnemy?'Battle':'Event';showScr(scrId);if(state.curEnemy){showEnemy();if(state.curEnemyHp>0){document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnNextFloor').classList.add('hidden');document.getElementById('battleResult').classList.add('hidden')}else if(state.enemiesLeft>0){document.getElementById('btnNextEnemy').classList.remove('hidden');document.getElementById('btnRoll').classList.add('hidden')}else{document.getElementById('btnNextFloor').classList.remove('hidden');document.getElementById('btnRoll').classList.add('hidden')}}}
 updateUI();
 </script>
 </body>
