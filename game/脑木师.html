@@ -267,6 +267,7 @@ function startGame(){
   accCounts={spd:0,atk:0,hp:0,armor:0,range:0,lifesteal:0};
   player={hp:getMaxHp(),maxHp:getMaxHp()};
   gameRunning=true;gamePaused=false;shopOpen=false;
+  updateHud();
   nextWave();
 }
 
@@ -512,7 +513,7 @@ function closeShop(){
   shopOpen=false;
   document.getElementById('shopOverlay').classList.remove('show');
   player.maxHp=getMaxHp();
-  player.hp=Math.min(player.hp,player.maxHp);
+  player.hp=player.maxHp;
   nextWave();
 }
 
