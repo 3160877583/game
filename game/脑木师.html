@@ -41,6 +41,9 @@ canvas{display:block;background:#111;border-radius:8px}
 .weapon-opt .wo-name{font-weight:700;margin-top:6px}
 .weapon-opt .wo-desc{font-size:11px;color:#888;margin-top:4px}
 .controls{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 16px;border-radius:20px;font-size:11px;color:#666;z-index:10}
+.joystick{position:fixed;bottom:80px;left:60px;width:120px;height:120px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);border-radius:50%;z-index:15;touch-action:none;display:none}
+.joystick-inner{position:absolute;width:50px;height:50px;background:rgba(255,255,255,.25);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+@media(hover:none)and(pointer:coarse){.joystick{display:block}.controls{display:none}}
 </style>
 </head>
 <body>
@@ -73,7 +76,8 @@ canvas{display:block;background:#111;border-radius:8px}
   <button class="btn" onclick="startGame()">开始战斗</button>
 </div>
 
-<div class="controls">WASD/方向键移动 · 自动攻击最近敌人</div>
+<div class="controls">PC: WASD/方向键移动 · 自动攻击</div>
+<div class="joystick" id="joystick"><div class="joystick-inner" id="joyInner"></div></div>
 
 <script>
 // ===== GAME CONFIG =====
@@ -599,6 +603,67 @@ setInterval(gameLoop,TICK);
 // ===== INPUT =====
 document.addEventListener('keydown',function(e){keys[e.code]=true});
 document.addEventListener('keyup',function(e){keys[e.code]=false});
+
+// ===== TOUCH JOYSTICK =====
+var joyEl=document.getElementById('joystick');
+var joyInner=document.getElementById('joyInner');
+var joyActive=false,joyCenterX=0,joyCenterY=0;
+var touchDx=0,touchDy=0;
+
+joyEl.addEventListener('touchstart',function(e){
+  e.preventDefault();
+  var t=e.touches[0];
+  var r=joyEl.getBoundingClientRect();
+  joyCenterX=r.left+r.width/2;
+  joyCenterY=r.top+r.height/2;
+  joyActive=true;
+  joyInner.style.transition='none';
+  moveJoy(t);
+},{passive:false});
+
+joyEl.addEventListener('touchmove',function(e){
+  e.preventDefault();
+  if(joyActive) moveJoy(e.touches[0]);
+},{passive:false});
+
+joyEl.addEventListener('touchend',function(e){
+  e.preventDefault();
+  joyActive=false;
+  touchDx=0;touchDy=0;
+  joyInner.style.transform='translate(-50%,-50%)';
+  joyInner.style.transition='transform .15s';
+},{passive:false});
+
+function moveJoy(t){
+  var dx=t.clientX-joyCenterX;
+  var dy=t.clientY-joyCenterY;
+  var maxR=35;
+  var d=Math.hypot(dx,dy);
+  if(d>maxR){dx=dx/d*maxR;dy=dy/d*maxR}
+  joyInner.style.transform='translate('+(dx-25)+'px,'+(dy-25)+'px)';
+  touchDx=dx/maxR;
+  touchDy=dy/maxR;
+}
+
+// Override updatePlayer to include touch
+var _origUpdatePlayer=updatePlayer;
+updatePlayer=function(){
+  var dx=0,dy=0;
+  if(keys['ArrowLeft']||keys['KeyA'])dx=-1;
+  if(keys['ArrowRight']||keys['KeyD'])dx=1;
+  if(keys['ArrowUp']||keys['KeyW'])dy=-1;
+  if(keys['ArrowDown']||keys['KeyS'])dy=1;
+  if(joyActive){dx+=touchDx;dy+=touchDy}
+  if(dx||dy){
+    var len=Math.sqrt(dx*dx+dy*dy);
+    var spd=getSpeed();
+    x+=dx/len*spd;
+    y+=dy/len*spd;
+    var margin=20;
+    x=Math.max(margin,Math.min(W-margin,x));
+    y=Math.max(margin,Math.min(H-margin,y));
+  }
+};
 
 // ===== INIT DRAW =====
 draw();
