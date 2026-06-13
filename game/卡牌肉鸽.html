@@ -240,6 +240,7 @@ function startBattle(enemyIdx){
 
 function onBattleWin(){
   s.relics.forEach(r=>{if(r.onBattleEnd)r.onBattleEnd(s)});
+  s.enemy=null;
   const gold=15+s.chapter*5;const isBoss=BOSS_IDX.includes(ENEMIES.indexOf(s.enemy));
   s.gold+=gold;saveGame();
   // Reward: choose 1 of 3 cards
@@ -294,8 +295,8 @@ function doUpgrade(){const upg=s.deck.filter(c=>c.cost>0);if(upg.length>0){const
 
 function leaveShop(){showMap()}
 
-clearSave();function onGameOver(){document.getElementById('goInfo').innerHTML=`你倒在了第${s.chapter}章-${s.node}层<br>🃏 收集了${s.deck.length}张卡牌<br>💰 积累了${s.gold}金`;show('GameOver')}
-clearSave();function onGameWin(){document.getElementById('winInfo').innerHTML=`你击败了混沌之王！<br>🃏 牌组${s.deck.length}张<br>💰 ${s.gold}金<br>🎁 ${s.relics.length}个遗物`;show('Win')}
+clearSave();function onGameOver(){s.enemy=null;document.getElementById('goInfo').innerHTML=`你倒在了第${s.chapter}章-${s.node}层<br>🃏 收集了${s.deck.length}张卡牌<br>💰 积累了${s.gold}金`;show('GameOver')}
+clearSave();function onGameWin(){s.enemy=null;document.getElementById('winInfo').innerHTML=`你击败了混沌之王！<br>🃏 牌组${s.deck.length}张<br>💰 ${s.gold}金<br>🎁 ${s.relics.length}个遗物`;show('Win')}
 function restart(){clearSave();location.reload()}
 function startGame(){initDeck();s.relics.push({...RELICS[5]});showMap()}
 
