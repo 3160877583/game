@@ -280,9 +280,9 @@ function goNode(n){
 
 function triggerEvent(){
   const events=[
-    {icon:'🧙',title:'神秘商人',desc:'花50金买随机遗物？',opts:[{text:'购买(50金)',action:()=>{if(s.gold>=50){s.gold-=50;saveGame();const p=RELICS.filter(r=>!s.relics.find(x=>x.id===r.id));if(p.length>0){const r=p[Math.floor(Math.random()*p.length)];s.relics.push(r);alert('获得：'+r.icon+r.name)}else alert('没有新遗物了')}else alert('金币不足')}},{text:'离开',action:()=>showMap()}]},
-    {icon:'💎',title:'宝箱',desc:'打开获得30-80金',opts:[{text:'打开',action:()=>{const g=30+Math.floor(Math.random()*50);s.gold+=g;saveGame();alert('获得'+g+'金');showMap()}},{text:'离开',action:()=>showMap()}]},
-    {icon:'🔥',title:'祭坛',desc:'献祭一张牌获得力量？',opts:[{text:'献祭(移除一张打击)',action:()=>{const i=s.deck.findIndex(c=>c.id==='strike');if(i>=0){s.deck.splice(i,1);s.power+=2;alert('移除成功！力量+2')}showMap()}},{text:'离开',action:()=>showMap()}]}
+    {icon:'🧙',title:'神秘商人',desc:'花50金买随机遗物？',opts:[{text:'购买(50金)',action:()=>{if(s.gold>=50){s.gold-=50;saveGame();const p=RELICS.filter(r=>!s.relics.find(x=>x.id===r.id));if(p.length>0){const r=p[Math.floor(Math.random()*p.length)];s.relics.push(r);alert('获得：'+r.icon+r.name)}else alert('没有新遗物了')}else alert('金币不足')}},{text:'离开',action:()=>afterReward()}]},
+    {icon:'💎',title:'宝箱',desc:'打开获得30-80金',opts:[{text:'打开',action:()=>{const g=30+Math.floor(Math.random()*50);s.gold+=g;saveGame();alert('获得'+g+'金');afterReward()}},{text:'离开',action:()=>afterReward()}]},
+    {icon:'🔥',title:'祭坛',desc:'献祭一张牌获得力量？',opts:[{text:'献祭(移除一张打击)',action:()=>{const i=s.deck.findIndex(c=>c.id==='strike');if(i>=0){s.deck.splice(i,1);s.power+=2;alert('移除成功！力量+2')}afterReward()}},{text:'离开',action:()=>afterReward()}]}
   ];
   const ev=events[Math.floor(Math.random()*events.length)];
   let html=`<div style="font-size:30px">${ev.icon}</div><h2>${ev.title}</h2><div>${ev.desc}</div>`;
@@ -290,10 +290,10 @@ function triggerEvent(){
   document.getElementById('eventContent').innerHTML=html;show('Event');
 }
 
-function doRest(){s.hp=Math.min(s.mhp,s.hp+Math.floor(s.mhp*0.3));saveGame();alert('恢复了30%HP');showMap()}
-function doUpgrade(){const upg=s.deck.filter(c=>c.cost>0);if(upg.length>0){const c=upg[Math.floor(Math.random()*upg.length)];c.dmg=Math.floor((c.dmg||0)*1.3);c.blk=Math.floor((c.blk||0)*1.3);c.heal=Math.floor((c.heal||0)*1.3);alert(c.name+'已强化！')}showMap()}
+function doRest(){s.hp=Math.min(s.mhp,s.hp+Math.floor(s.mhp*0.3));saveGame();alert('恢复了30%HP');afterReward()}
+function doUpgrade(){const upg=s.deck.filter(c=>c.cost>0);if(upg.length>0){const c=upg[Math.floor(Math.random()*upg.length)];c.dmg=Math.floor((c.dmg||0)*1.3);c.blk=Math.floor((c.blk||0)*1.3);c.heal=Math.floor((c.heal||0)*1.3);alert(c.name+'已强化！')}afterReward()}
 
-function leaveShop(){showMap()}
+function leaveShop(){afterReward()}
 
 clearSave();function onGameOver(){s.enemy=null;document.getElementById('goInfo').innerHTML=`你倒在了第${s.chapter}章-${s.node}层<br>🃏 收集了${s.deck.length}张卡牌<br>💰 积累了${s.gold}金`;show('GameOver')}
 clearSave();function onGameWin(){s.enemy=null;document.getElementById('winInfo').innerHTML=`你击败了混沌之王！<br>🃏 牌组${s.deck.length}张<br>💰 ${s.gold}金<br>🎁 ${s.relics.length}个遗物`;show('Win')}
