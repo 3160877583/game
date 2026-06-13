@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>骰子赌场</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a0a0a;font-family:'Segoe UI',sans-serif;color:#fff}
+#app{width:100%;height:100%;display:flex;flex-direction:column}
+#statusBar{background:linear-gradient(135deg,#2a0a0a,#1a0505);padding:8px 12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;border-bottom:2px solid #c9a227}
+.stat{font-size:12px;display:flex;align-items:center;gap:3px}
+.stat .v{color:#c9a227;font-weight:bold}
+#mainArea{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;align-items:center}
+#screen{width:100%;max-width:400px}
+.screen{display:none}.screen.active{display:block}
+h2{text-align:center;color:#c9a227;margin-bottom:10px;font-size:18px}
+.btn{display:block;width:100%;padding:10px;margin:5px 0;background:linear-gradient(135deg,#8B0000,#5a0000);color:#fff;border:2px solid #c9a227;border-radius:8px;font-size:14px;cursor:pointer;text-align:center}
+.btn:hover{background:linear-gradient(135deg,#a00,#700)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.gold{background:linear-gradient(135deg,#c9a227,#8B6914);color:#000;font-weight:bold}
+.btn.small{display:inline-block;width:auto;padding:6px 12px;font-size:12px;margin:2px}
+.diceArea{display:flex;justify-content:center;gap:10px;margin:15px 0;min-height:60px}
+.die{width:50px;height:50px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#000;font-weight:bold;box-shadow:0 3px 10px rgba(0,0,0,.5);transition:transform .3s}
+.die.rolling{animation:diceRoll .5s ease-in-out}
+.die.player{border:3px solid #c9a227}
+.die.enemy{border:3px solid #f44}
+@keyframes diceRoll{0%{transform:rotate(0) scale(1)}25%{transform:rotate(90deg) scale(1.2)}50%{transform:rotate(180deg) scale(.8)}75%{transform:rotate(270deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
+.hpBar{width:100%;height:16px;background:#333;border-radius:8px;overflow:hidden;margin:5px 0;border:1px solid #555}
+.hpFill{height:100%;transition:width .5s;border-radius:8px}
+.hpFill.green{background:linear-gradient(90deg,#0a0,#0f0)}
+.hpFill.yellow{background:linear-gradient(90deg,#aa0,#ff0)}
+.hpFill.red{background:linear-gradient(90deg,#a00,#f00)}
+.enemyCard{text-align:center;background:rgba(139,0,0,.3);border:2px solid #8B0000;border-radius:10px;padding:12px;margin:10px 0}
+.enemyIcon{font-size:40px;margin:5px 0}
+.enemyName{font-size:16px;color:#f88;font-weight:bold}
+.result{text-align:center;font-size:18px;font-weight:bold;margin:10px 0;padding:8px;border-radius:6px}
+.result.win{background:rgba(0,180,0,.3);color:#0f0}
+.result.lose{background:rgba(180,0,0,.3);color:#f44}
+.result.draw{background:rgba(180,180,0,.3);color:#ff0}
+.item{background:rgba(50,50,50,.5);border:1px solid #555;border-radius:6px;padding:8px;margin:4px 0;display:flex;justify-content:space-between;align-items:center}
+.item .info{font-size:12px}.item .name{font-weight:bold;color:#c9a227}
+.item .stats{color:#aaa;font-size:11px}
+.item .actions{display:flex;gap:4px}
+.rarity.common{border-color:#aaa}.rarity.rare{border-color:#44f}.rarity.epic{border-color:#a0f}.rarity.legend{border-color:#f80}
+.shopItem{background:rgba(50,50,30,.5);border:2px solid #c9a227;border-radius:8px;padding:10px;margin:6px 0}
+.shopItem .price{color:#c9a227;font-weight:bold}
+.eventCard{text-align:center;background:rgba(50,50,0,.3);border:2px solid #c9a227;border-radius:10px;padding:15px;margin:10px 0}
+.eventIcon{font-size:45px;margin:5px 0}
+.eventDesc{color:#ccc;font-size:13px;margin:8px 0}
+.betArea{text-align:center;margin:10px 0}
+.betInput{width:80px;padding:6px;font-size:16px;text-align:center;background:#222;border:2px solid #c9a227;border-radius:6px;color:#fff}
+.floorInfo{text-align:center;color:#c9a227;font-size:14px;margin:5px 0}
+#gameLog{position:fixed;bottom:50px;left:5px;right:5px;max-height:80px;overflow-y:auto;background:rgba(0,0,0,.7);border:1px solid #333;border-radius:6px;padding:5px;font-size:10px;color:#aaa;z-index:5;pointer-events:none}
+.logLine{margin:1px 0}
+#bottomNav{display:flex;background:#1a0505;border-top:2px solid #c9a227}
+.navBtn{flex:1;padding:8px;text-align:center;font-size:11px;color:#aaa;cursor:pointer;border:none;background:none}
+.navBtn.active{color:#c9a227;border-bottom:2px solid #c9a227}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="statusBar">
+    <div class="stat">❤️<span class="v" id="sHp">100</span>/<span id="sMaxHp">100</span></div>
+    <div class="stat">⚔️<span class="v" id="sAtk">10</span></div>
+    <div class="stat">🛡️<span class="v" id="sDef">5</span></div>
+    <div class="stat">💰<span class="v" id="sGold">50</span></div>
+    <div class="stat">🎰<span class="v" id="sFloor">1</span>F</div>
+    <div class="stat">🎲<span class="v" id="sDiceMod">0</span></div>
+  </div>
+  <div id="mainArea">
+    <div id="screen">
+      <!-- 战斗 -->
+      <div class="screen active" id="scrBattle">
+        <div class="floorInfo" id="floorInfo">第1层</div>
+        <div class="enemyCard">
+          <div class="enemyIcon" id="eIcon">👾</div>
+          <div class="enemyName" id="eName">小怪物</div>
+          <div style="font-size:11px;color:#aaa" id="eDesc">普通敌人</div>
+          <div class="hpBar"><div class="hpFill green" id="eHpBar" style="width:100%"></div></div>
+          <div style="font-size:11px"><span id="eHp">30</span>/<span id="eMaxHp">30</span> HP</div>
+        </div>
+        <div class="diceArea">
+          <div class="die player" id="d0">?</div>
+          <div class="die player" id="d1">?</div>
+          <div class="die player" id="d2">?</div>
+          <div style="width:20px"></div>
+          <div class="die enemy" id="d3">?</div>
+          <div class="die enemy" id="d4">?</div>
+          <div class="die enemy" id="d5">?</div>
+        </div>
+        <div class="result hidden" id="battleResult"></div>
+        <div style="font-size:11px;text-align:center;color:#aaa" id="battleInfo">投骰子决定谁先手！</div>
+        <button class="btn" id="btnRoll" onclick="doBattle()">🎲 投骰子战斗！</button>
+        <button class="btn hidden" id="btnNextEnemy" onclick="nextEnemy()">➡️ 下一个敌人</button>
+        <button class="btn hidden" id="btnNextFloor" onclick="nextFloor()">⬆️ 进入下一层</button>
+      </div>
+      <!-- 赌场 -->
+      <div class="screen" id="scrCasino">
+        <h2>🎰 赌场</h2>
+        <div class="betArea">
+          <div style="margin:5px">当前金币：<span style="color:#c9a227;font-weight:bold" id="cGold">50</span></div>
+          <div style="margin:5px">押注金额：</div>
+          <input type="number" class="betInput" id="betAmount" value="10" min="1">
+          <div style="margin:10px 0">
+            <button class="btn small gold" onclick="doCasino('big')">📈 大 (≥11)</button>
+            <button class="btn small gold" onclick="doCasino('small')">📉 小 (≤10)</button>
+            <button class="btn small gold" onclick="doCasino('odd')">🔢 奇数</button>
+            <button class="btn small gold" onclick="doCasino('even')">🔢 偶数</button>
+          </div>
+          <button class="btn gold" onclick="doCasino('triple')">🎯 豹子 (×10)</button>
+        </div>
+        <div class="diceArea" id="casinoDice">
+          <div class="die" id="cd0">?</div>
+          <div class="die" id="cd1">?</div>
+          <div class="die" id="cd2">?</div>
+        </div>
+        <div class="result hidden" id="casinoResult"></div>
+      </div>
+      <!-- 商店 -->
+      <div class="screen" id="scrShop">
+        <h2>🏪 商店</h2>
+        <div id="shopList"></div>
+        <button class="btn" onclick="refreshShop()">🔄 刷新商品 (10金)</button>
+      </div>
+      <!-- 背包 -->
+      <div class="screen" id="scrBag">
+        <h2>🎒 背包</h2>
+        <div style="font-size:12px;color:#aaa;text-align:center;margin:5px">装备属性会自动叠加到角色</div>
+        <div id="bagList"></div>
+        <button class="btn" onclick="sellAll()">💰 一键出售所有未装备</button>
+      </div>
+      <!-- 事件 -->
+      <div class="screen" id="scrEvent">
+        <div class="eventCard">
+          <div class="eventIcon" id="evIcon">❓</div>
+          <h2 id="evTitle">神秘事件</h2>
+          <div class="eventDesc" id="evDesc">...</div>
+          <div id="evButtons"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="gameLog"></div>
+  <div id="bottomNav">
+    <button class="navBtn active" onclick="showScr('Battle')">⚔️战斗</button>
+    <button class="navBtn" onclick="showScr('Casino')">🎰赌场</button>
+    <button class="navBtn" onclick="showScr('Shop')">🏪商店</button>
+    <button class="navBtn" onclick="showScr('Bag')">🎒背包</button>
+  </div>
+</div>
+<script>
+const ENEMIES=[
+  {name:'小怪物',icon:'👾',hp:30,atk:5,def:2,gold:15,desc:'最弱的敌人'},
+  {name:'野狼',icon:'🐺',hp:40,atk:8,def:3,gold:20,desc:'速度很快'},
+  {name:'骷髅兵',icon:'💀',hp:50,atk:10,def:5,gold:25,desc:'骨头很硬'},
+  {name:'蝙蝠',icon:'🦇',hp:35,atk:12,def:2,gold:30,desc:'攻击很高'},
+  {name:'石头人',icon:'🗿',hp:80,atk:8,def:10,gold:35,desc:'超级肉盾'},
+  {name:'暗影刺客',icon:'🥷',hp:45,atk:15,def:4,gold:40,desc:'致命一击'},
+  {name:'火焰法师',icon:'🧙',hp:55,atk:18,def:6,gold:45,desc:'魔法伤害'},
+  {name:'冰霜巨人',icon:'🧌',hp:100,atk:12,def:12,gold:50,desc:'冰冷之躯'},
+  {name:'恶魔',icon:'👹',hp:80,atk:20,def:8,gold:60,desc:'来自地狱'},
+  {name:'死神',icon:'💀',hp:120,atk:25,def:15,gold:80,desc:'收割生命'},
+  {name:'龙',icon:'🐉',hp:150,atk:30,def:20,gold:100,desc:'远古巨龙'},
+  {name:'骰子之神',icon:'🎲',hp:300,atk:40,def:25,gold:200,desc:'最终BOSS！掌控命运！'}
+];
+const BOSSES=[4,7,9,11];
+const ITEMS=[
+  {name:'铁剑',type:'weapon',atk:3,price:30,rarity:'common',icon:'⚔️'},
+  {name:'钢剑',type:'weapon',atk:6,price:60,rarity:'common',icon:'⚔️'},
+  {name:'火焰剑',type:'weapon',atk:10,price:120,rarity:'rare',icon:'🗡️'},
+  {name:'雷神之锤',type:'weapon',atk:15,price:200,rarity:'epic',icon:'🔨'},
+  {name:'灭世之刃',type:'weapon',atk:25,price:500,rarity:'legend',icon:'⚔️'},
+  {name:'皮甲',type:'armor',def:3,price:30,rarity:'common',icon:'🛡️'},
+  {name:'锁子甲',type:'armor',def:6,price:60,rarity:'common',icon:'🛡️'},
+  {name:'火焰铠甲',type:'armor',def:10,price:120,rarity:'rare',icon:'🛡️'},
+  {name:'龙鳞甲',type:'armor',def:15,price:200,rarity:'epic',icon:'🛡️'},
+  {name:'神之铠甲',type:'armor',def:25,price:500,rarity:'legend',icon:'🛡️'},
+  {name:'生命戒指',type:'ring',hp:20,price:40,rarity:'common',icon:'💍'},
+  {name:'力量戒指',type:'ring',atk:5,price:80,rarity:'rare',icon:'💍'},
+  {name:'守护戒指',type:'ring',def:5,price:80,rarity:'rare',icon:'💍'},
+  {name:'幸运戒指',type:'ring',diceMod:1,price:150,rarity:'epic',icon:'💍'},
+  {name:'命运之戒',type:'ring',diceMod:2,price:400,rarity:'legend',icon:'💍'},
+  {name:'小药水',type:'consumable',heal:30,price:20,rarity:'common',icon:'🧴'},
+  {name:'大药水',type:'consumable',heal:80,price:50,rarity:'rare',icon:'🧴'},
+  {name:'满血药水',type:'consumable',heal:999,price:100,rarity:'epic',icon:'🧴'}
+];
+const EVENTS=[
+  {icon:'🧙',title:'神秘商人',desc:'一个神秘商人出现了！',options:[{text:'花50金买随机装备',cost:50,action:'buyRandom'},{text:'离开',action:'leave'}]},
+  {icon:'👸',title:'幸运女神',desc:'幸运女神祝福了你！下次投骰子+2！',options:[{text:'接受祝福',action:'diceMod',val:2}]},
+  {icon:'👻',title:'诅咒之地',desc:'你被诅咒了！下次投骰子-2！',options:[{text:'接受诅咒',action:'diceMod',val:-2},{text:'花30金驱散',cost:30,action:'removeDebuff'}]},
+  {icon:'🎲',title:'赌场庄家',desc:'庄家对你眨眨眼，似乎在作弊...',options:[{text:'揭穿他！(赢了×3)',action:'cheat',mult:3},{text:'算了',action:'leave'}]},
+  {icon:'💎',title:'宝箱',desc:'你发现了一个宝箱！',options:[{text:'打开',action:'treasure'},{text:'陷阱！(小心)',action:'leave'}]},
+  {icon:'🏥',title:'治疗泉水',desc:'清澈的泉水散发着生命气息',options:[{text:'喝一口(恢复50HP)',action:'heal',val:50},{text:'装瓶带走(花20金)',cost:20,action:'healBottle'}]}
+];
+
+let state={
+  hp:100,maxHp:100,atk:10,def:5,gold:50,floor:1,diceMod:0,
+  bag:[],equipped:{weapon:null,armor:null,ring:null},
+  enemiesLeft:0,curEnemy:null,curEnemyHp:0,
+  shopItems:[]
+};
+
+function log(t){const d=document.getElementById('gameLog');d.innerHTML+=`<div class="logLine">${t}</div>`;d.scrollTop=d.scrollHeight}
+
+function getTotalAtk(){let a=state.atk;if(state.equipped.weapon){const i=ITEMS.find(x=>x.name===state.equipped.weapon);if(i)a+=i.atk||0}if(state.equipped.ring){const i=ITEMS.find(x=>x.name===state.equipped.ring);if(i)a+=i.atk||0}return a}
+function getTotalDef(){let d=state.def;if(state.equipped.armor){const i=ITEMS.find(x=>x.name===state.equipped.armor);if(i)d+=i.def||0}if(state.equipped.ring){const i=ITEMS.find(x=>x.name===state.equipped.ring);if(i)d+=i.def||0}return d}
+function getTotalMaxHp(){let h=state.maxHp;if(state.equipped.ring){const i=ITEMS.find(x=>x.name===state.equipped.ring);if(i)h+=i.hp||0}return h}
+function getDiceMod(){let m=state.diceMod;if(state.equipped.ring){const i=ITEMS.find(x=>x.name===state.equipped.ring);if(i)m+=i.diceMod||0}return m}
+
+function updateUI(){
+  document.getElementById('sHp').textContent=state.hp;document.getElementById('sMaxHp').textContent=getTotalMaxHp();
+  document.getElementById('sAtk').textContent=getTotalAtk();document.getElementById('sDef').textContent=getTotalDef();
+  document.getElementById('sGold').textContent=state.gold;document.getElementById('sFloor').textContent=state.floor;
+  document.getElementById('sDiceMod').textContent=getDiceMod();
+  document.getElementById('cGold').textContent=state.gold;
+  if(state.hp>getTotalMaxHp()*0.6)document.getElementById('sHp').style.color='#0f0';
+  else if(state.hp>getTotalMaxHp()*0.3)document.getElementById('sHp').style.color='#fc0';
+  else document.getElementById('sHp').style.color='#f44';
+}
+
+function rollDice(n,mod){
+  let r=[];for(let i=0;i<n;i++)r.push(Math.floor(Math.random()*6)+1);
+  if(mod)r=r.map(v=>Math.max(1,Math.min(6,v+mod)));return r;
+}
+
+function isTriple(d){return d[0]===d[1]&&d[1]===d[2]}
+function sum(d){return d[0]+d[1]+d[2]}
+
+function showScr(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('scr'+name).classList.add('active');
+  document.querySelectorAll('.navBtn').forEach((b,i)=>b.classList.toggle('active',['Battle','Casino','Shop','Bag'][i]===name));
+  if(name==='Shop')renderShop();if(name==='Bag')renderBag();updateUI();
+}
+
+function startFloor(){
+  const f=state.floor;
+  const isBoss=BOSSES.includes(f-1);
+  let enemyIdx;
+  if(isBoss){enemyIdx=BOSSES[BOSSES.indexOf(f-1)]}
+  else{const pool=[];for(let i=0;i<Math.min(ENEMIES.length-1,f*2);i++)pool.push(i);enemyIdx=pool[Math.floor(Math.random()*pool.length)]}
+  const e=ENEMIES[enemyIdx];
+  const mult=1+(f-1)*0.3;
+  state.curEnemy={...e,hp:Math.floor(e.hp*mult),atk:Math.floor(e.atk*mult),def:Math.floor(e.def*mult),gold:Math.floor(e.gold*mult),isBoss};
+  state.curEnemyHp=state.curEnemy.hp;
+  state.enemiesLeft=isBoss?1:2+Math.floor(f*0.5);
+  showEnemy();showScr('Battle');
+  document.getElementById('btnRoll').classList.remove('hidden');
+  document.getElementById('btnNextEnemy').classList.add('hidden');
+  document.getElementById('btnNextFloor').classList.add('hidden');
+  document.getElementById('battleResult').classList.add('hidden');
+  document.getElementById('battleInfo').textContent='投骰子决定谁先手！';
+  document.getElementById('floorInfo').textContent=isBoss?`⚠️ BOSS战！第${f}层`:`第${f}层 (${state.enemiesLeft}个敌人)`;
+  log(`进入第${f}层，遇到${e.name}！`);
+}
+
+function showEnemy(){
+  const e=state.curEnemy;
+  document.getElementById('eIcon').textContent=e.icon;document.getElementById('eName').textContent=e.name+(e.isBoss?' ⚠️BOSS':'');
+  document.getElementById('eDesc').textContent=e.desc;
+  document.getElementById('eHp').textContent=state.curEnemyHp;document.getElementById('eMaxHp').textContent=e.hp;
+  const pct=state.curEnemyHp/e.hp*100;
+  const bar=document.getElementById('eHpBar');bar.style.width=pct+'%';
+  bar.className='hpFill '+(pct>60?'green':pct>30?'yellow':'red');
+}
+
+function animateDice(ids,results,cb){
+  ids.forEach(id=>{document.getElementById(id).classList.add('rolling');document.getElementById(id).textContent='🎲'});
+  setTimeout(()=>{
+    ids.forEach((id,i)=>{document.getElementById(id).classList.remove('rolling');document.getElementById(id).textContent=results[i]});
+    if(cb)cb();
+  },500);
+}
+
+function doBattle(){
+  const btn=document.getElementById('btnRoll');btn.disabled=true;
+  const dm=getDiceMod();
+  const pd=rollDice(3,dm),ed=rollDice(3,0);
+  animateDice(['d0','d1','d2'],pd,()=>{
+    animateDice(['d3','d4','d5'],ed,()=>{
+      const ps=sum(pd),es=sum(ed);
+      const pTriple=isTriple(pd),eTriple=isTriple(ed);
+      let info='',result='';
+      if(pTriple&&!eTriple){info='🎯 你投出豹子！直接秒杀！';result='win';dealDmg(state.curEnemyHp,'player')}
+      else if(eTriple&&!pTriple){info='💀 敌人投出豹子！你被秒杀！';result='lose';state.hp=0}
+      else if(ps>es){info=`你 ${ps} vs ${es} 敌人，你先手！`;result='playerFirst'}
+      else if(es>ps){info=`你 ${ps} vs ${es} 敌人，敌人先手！`;result='enemyFirst'}
+      else{info=`平局 ${ps}=${es}，重新投！`;result='draw'}
+      document.getElementById('battleInfo').textContent=info;
+      log(`🎲 你[${pd.join(',')}]${ps} vs 敌人[${ed.join(',')}]${es}`);
+      if(result==='win'){onBattleWin()}
+      else if(result==='lose'){onBattleLose()}
+      else if(result==='draw'){btn.disabled=false}
+      else{
+        const dmg=result==='playerFirst'?Math.max(1,getTotalAtk()-state.curEnemy.def):0;
+        const eDmg=result==='enemyFirst'?Math.max(1,state.curEnemy.atk-getTotalDef()):0;
+        setTimeout(()=>{
+          if(result==='playerFirst'){dealDmg(dmg,'player');state.curEnemyHp-=dmg;log(`⚔️ 你造成${dmg}伤害`);if(state.curEnemyHp<=0){onBattleWin();return}showEnemy()}
+          else{state.hp-=eDmg;log(`💥 敌人造成${eDmg}伤害`);if(state.hp<=0){onBattleLose();return}}
+          setTimeout(()=>{
+            if(result==='playerFirst'){
+              const eDmg2=Math.max(1,state.curEnemy.atk-getTotalDef());state.hp-=eDmg2;log(`💥 敌人反击${eDmg2}伤害`);
+              if(state.hp<=0){onBattleLose();return}
+            }else{
+              const dmg2=Math.max(1,getTotalAtk()-state.curEnemy.def);state.curEnemyHp-=dmg2;log(`⚔️ 你反击${dmg2}伤害`);
+              if(state.curEnemyHp<=0){onBattleWin();return}showEnemy()
+            }
+            btn.disabled=false;updateUI();
+          },600);
+        },600);
+      }
+    });
+  });
+}
+
+function dealDmg(dmg,who){
+  const el=document.createElement('div');el.style.cssText=`position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:bold;color:${who==='player'?'#0f0':'#f44'};z-index:100;pointer-events:none;text-shadow:0 0 10px ${who==='player'?'#0f0':'#f44'}`;
+  el.textContent=(who==='player'?'-':'-')+dmg;document.body.appendChild(el);
+  let y=0;const anim=()=>{y-=2;el.style.transform=`translate(-50%,-50%) translateY(${y}px)`;el.style.opacity=1+y/100;if(y>-100)requestAnimationFrame(anim);else el.remove()};requestAnimationFrame(anim);
+}
+
+function onBattleWin(){
+  const e=state.curEnemy;state.gold+=e.gold;state.enemiesLeft--;
+  log(`✅ 击败${e.name}！获得${e.gold}金`);
+  document.getElementById('battleResult').textContent=`🎉 胜利！+${e.gold}金`;document.getElementById('battleResult').className='result win';
+  document.getElementById('battleResult').classList.remove('hidden');
+  document.getElementById('btnRoll').classList.add('hidden');
+  // Drop item
+  if(Math.random()<0.4){
+    const pool=ITEMS.filter(i=>i.type!=='consumable');const item=pool[Math.floor(Math.random()*pool.length)];
+    state.bag.push({...item,uid:Date.now()+Math.random()});
+    log(`🎁 掉落：${item.icon} ${item.name}`);
+  }
+  if(state.enemiesLeft>0)document.getElementById('btnNextEnemy').classList.remove('hidden');
+  else document.getElementById('btnNextFloor').classList.remove('hidden');
+  // Random event chance
+  if(Math.random()<0.3&&!e.isBoss){setTimeout(()=>triggerEvent(),500)}
+  updateUI();
+}
+
+function onBattleLose(){
+  log('💀 你被击败了！');
+  document.getElementById('battleResult').textContent='💀 你被击败了！';document.getElementById('battleResult').className='result lose';
+  document.getElementById('battleResult').classList.remove('hidden');
+  document.getElementById('btnRoll').classList.add('hidden');
+  state.hp=Math.floor(getTotalMaxHp()*0.3);state.gold=Math.floor(state.gold*0.5);
+  log('💊 复活：30%HP，损失50%金币');
+  setTimeout(()=>{document.getElementById('btnNextFloor').classList.remove('hidden');updateUI()},1000);
+}
+
+function nextEnemy(){
+  const f=state.floor;const pool=[];for(let i=0;i<Math.min(ENEMIES.length-1,f*2);i++)pool.push(i);
+  const idx=pool[Math.floor(Math.random()*pool.length)];const e=ENEMIES[idx];const mult=1+(f-1)*0.3;
+  state.curEnemy={...e,hp:Math.floor(e.hp*mult),atk:Math.floor(e.atk*mult),def:Math.floor(e.def*mult),gold:Math.floor(e.gold*mult),isBoss:false};
+  state.curEnemyHp=state.curEnemy.hp;showEnemy();
+  document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnRoll').classList.remove('hidden');
+  document.getElementById('battleResult').classList.add('hidden');document.getElementById('battleInfo').textContent='投骰子决定谁先手！';
+  document.getElementById('floorInfo').textContent=`第${f}层 (${state.enemiesLeft}个敌人)`;updateUI();
+}
+
+function nextFloor(){
+  state.floor++;if(state.floor>10){onGameWin();return}
+  // Heal between floors
+  state.hp=Math.min(getTotalMaxHp(),state.hp+Math.floor(getTotalMaxHp()*0.3));
+  startFloor();updateUI();
+}
+
+function onGameWin(){
+  document.getElementById('battleResult').textContent='🏆 恭喜通关！你是骰子之神！';document.getElementById('battleResult').className='result win';
+  document.getElementById('battleResult').classList.remove('hidden');
+  document.getElementById('btnRoll').classList.add('hidden');document.getElementById('btnNextFloor').classList.add('hidden');
+  log('🏆🏆🏆 通关！你是骰子之神！');
+}
+
+function doCasino(type){
+  const bet=parseInt(document.getElementById('betAmount').value)||10;
+  if(bet>state.gold){log('💰 金币不足！');return}
+  if(bet<1){log('💰 最低押1金！');return}
+  const d=rollDice(3,0);const s=sum(d);const tri=isTriple(d);
+  animateDice(['cd0','cd1','cd2'],d,()=>{
+    let win=false,mult=0;
+    if(type==='big'){win=s>=11&&!tri;mult=2}
+    else if(type==='small'){win=s<=10&&!tri;mult=2}
+    else if(type==='odd'){win=s%2===1&&!tri;mult=2}
+    else if(type==='even'){win=s%2===0&&!tri;mult=2}
+    else if(type==='triple'){win=tri;mult=10}
+    const el=document.getElementById('casinoResult');
+    if(win){const gain=bet*(mult-1);state.gold+=gain;el.textContent=`🎉 中了！+${gain}金 (${s}${tri?' 豹子!':''})`;el.className='result win';log(`🎰 赢了！${s}${tri?' 豹子!':''} +${gain}金`)}
+    else{state.gold-=bet;el.textContent=`💀 没中！-${bet}金 (${s}${tri?' 豹子!':''})`;el.className='result lose';log(`🎰 输了！${s}${tri?' 豹子!':''} -${bet}金`)}
+    el.classList.remove('hidden');updateUI();
+  });
+}
+
+function renderShop(){
+  if(state.shopItems.length===0)refreshShop();
+  const el=document.getElementById('shopList');el.innerHTML='';
+  state.shopItems.forEach((item,i)=>{
+    const div=document.createElement('div');div.className='shopItem item rarity '+item.rarity;
+    const stats=[];if(item.atk)stats.push(`⚔️+${item.atk}`);if(item.def)stats.push(`🛡️+${item.def}`);if(item.hp)stats.push(`❤️+${item.hp}`);if(item.diceMod)stats.push(`🎲${item.diceMod>0?'+':''}${item.diceMod}`);if(item.heal)stats.push(`💚回复${item.heal}`);
+    div.innerHTML=`<div class="info"><div class="name">${item.icon} ${item.name}</div><div class="stats">${stats.join(' ')}</div></div><div class="actions"><button class="btn small gold" onclick="buyItem(${i})">💰${item.price}</button></div>`;
+    el.appendChild(div);
+  });
+}
+
+function refreshShop(){
+  state.shopItems=[];const pool=ITEMS.filter(i=>i.type!=='consumable'||Math.random()<0.5);
+  for(let i=0;i<5;i++){const item=pool[Math.floor(Math.random()*pool.length)];state.shopItems.push({...item})}
+  renderShop();
+}
+
+function buyItem(i){
+  const item=state.shopItems[i];if(state.gold<item.price){log('💰 金币不足！');return}
+  state.gold-=item.price;state.bag.push({...item,uid:Date.now()+Math.random()});
+  log(`🛒 购买：${item.icon} ${item.name}`);state.shopItems.splice(i,1);renderShop();updateUI();
+}
+
+function renderBag(){
+  const el=document.getElementById('bagList');el.innerHTML='';
+  // Equipped
+  ['weapon','armor','ring'].forEach(slot=>{
+    const name=state.equipped[slot];const item=name?ITEMS.find(x=>x.name===name):null;
+    const div=document.createElement('div');div.className='item rarity '+(item?item.rarity:'common');
+    const stats=[];if(item){if(item.atk)stats.push(`⚔️+${item.atk}`);if(item.def)stats.push(`🛡️+${item.def}`);if(item.hp)stats.push(`❤️+${item.hp}`);if(item.diceMod)stats.push(`🎲${item.diceMod>0?'+':''}${item.diceMod}`)}
+    const slotName=slot==='weapon'?'武器':slot==='armor'?'护甲':'戒指';
+    div.innerHTML=`<div class="info"><div class="name">${slotName}：${item?item.icon+' '+item.name:'未装备'}</div><div class="stats">${stats.join(' ')}</div></div><div class="actions">${item?`<button class="btn small" onclick="unequip('${slot}')">卸下</button>`:''}</div>`;
+    el.appendChild(div);
+  });
+  // Bag items
+  const bagTitle=document.createElement('div');bagTitle.style.cssText='color:#c9a227;font-size:14px;margin:10px 0 5px';bagTitle.textContent='背包物品';el.appendChild(bagTitle);
+  if(state.bag.length===0){const empty=document.createElement('div');empty.style.cssText='color:#666;font-size:12px;text-align:center';empty.textContent='背包空空如也';el.appendChild(empty);return}
+  state.bag.forEach((item,i)=>{
+    const div=document.createElement('div');div.className='item rarity '+item.rarity;
+    const stats=[];if(item.atk)stats.push(`⚔️+${item.atk}`);if(item.def)stats.push(`🛡️+${item.def}`);if(item.hp)stats.push(`❤️+${item.hp}`);if(item.diceMod)stats.push(`🎲${item.diceMod>0?'+':''}${item.diceMod}`);if(item.heal)stats.push(`💚回复${item.heal}`);
+    const actBtns=[];
+    if(item.type==='consumable'){actBtns.push(`<button class="btn small gold" onclick="useItem(${i})">使用</button>`)}
+    else{actBtns.push(`<button class="btn small gold" onclick="equipItem(${i})">装备</button>`)}
+    actBtns.push(`<button class="btn small" onclick="sellItem(${i})">💰${Math.floor(item.price*0.5)}</button>`);
+    div.innerHTML=`<div class="info"><div class="name">${item.icon} ${item.name}</div><div class="stats">${stats.join(' ')}</div></div><div class="actions">${actBtns.join('')}</div>`;
+    el.appendChild(div);
+  });
+}
+
+function equipItem(i){
+  const item=state.bag[i];
+  if(state.equipped[item.type]){
+    const old=ITEMS.find(x=>x.name===state.equipped[item.type]);
+    if(old)state.bag.push({...old,uid:Date.now()+Math.random()});
+  }
+  state.equipped[item.type]=item.name;state.bag.splice(i,1);
+  log(`🔧 装备：${item.icon} ${item.name}`);renderBag();updateUI();
+}
+
+function unequip(slot){
+  const name=state.equipped[slot];if(!name)return;
+  const item=ITEMS.find(x=>x.name===name);
+  if(item)state.bag.push({...item,uid:Date.now()+Math.random()});
+  state.equipped[slot]=null;log(`📤 卸下：${item.icon} ${item.name}`);renderBag();updateUI();
+}
+
+function useItem(i){
+  const item=state.bag[i];
+  if(item.type==='consumable'){
+    const heal=item.heal===999?getTotalMaxHp():item.heal;
+    state.hp=Math.min(getTotalMaxHp(),state.hp+heal);
+    log(`💚 使用${item.name}，恢复${heal}HP`);state.bag.splice(i,1);renderBag();updateUI();
+  }
+}
+
+function sellItem(i){
+  const item=state.bag[i];const gold=Math.floor(item.price*0.5);
+  state.gold+=gold;state.bag.splice(i,1);log(`💰 出售${item.name}，+${gold}金`);renderBag();updateUI();
+}
+
+function sellAll(){
+  let total=0;state.bag.forEach(item=>{total+=Math.floor(item.price*0.5)});
+  state.gold+=total;state.bag=[];log(`💰 一键出售，+${total}金`);renderBag();updateUI();
+}
+
+function triggerEvent(){
+  const ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
+  document.getElementById('evIcon').textContent=ev.icon;
+  document.getElementById('evTitle').textContent=ev.title;
+  document.getElementById('evDesc').textContent=ev.desc;
+  const btns=document.getElementById('evButtons');btns.innerHTML='';
+  ev.options.forEach(opt=>{
+    const btn=document.createElement('button');btn.className='btn';btn.textContent=opt.text;
+    btn.onclick=()=>{
+      if(opt.cost&&state.gold<opt.cost){log('💰 金币不足！');return}
+      if(opt.cost)state.gold-=opt.cost;
+      if(opt.action==='buyRandom'){const pool=ITEMS.filter(x=>x.type!=='consumable');const item=pool[Math.floor(Math.random()*pool.length)];state.bag.push({...item,uid:Date.now()+Math.random()});log(`🎁 获得：${item.icon} ${item.name}`)}
+      else if(opt.action==='diceMod'){state.diceMod+=opt.val;log(`🎲 骰子修正${opt.val>0?'+':''}${opt.val}`)}
+      else if(opt.action==='removeDebuff'){state.diceMod=Math.max(0,state.diceMod);log('✨ 诅咒已驱散')}
+      else if(opt.action==='cheat'){if(Math.random()<0.5){const g=opt.mult*30;state.gold+=g;log(`🎰 揭穿庄家！+${g}金`)}else{state.gold=Math.max(0,state.gold-30);log('💀 没抓到，被罚30金')}}
+      else if(opt.action==='treasure'){const g=30+Math.floor(Math.random()*50);state.gold+=g;log(`💎 宝箱里有${g}金！`)}
+      else if(opt.action==='heal'){state.hp=Math.min(getTotalMaxHp(),state.hp+opt.val);log(`💚 恢复${opt.val}HP`)}
+      else if(opt.action==='healBottle'){state.bag.push({...ITEMS.find(x=>x.name==='小药水'),uid:Date.now()+Math.random()});log('🧴 获得小药水')}
+      showScr('Battle');updateUI();
+    };
+    btns.appendChild(btn);
+  });
+  showScr('Event');
+}
+
+// Init
+startFloor();updateUI();
+</script>
+</body>
+</html>{
