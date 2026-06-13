@@ -202,6 +202,11 @@ let state={
   shopItems:[]
 };
 
+const SAVE_KEY='dice_casino_save';
+function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state))}catch(e){}}
+function loadGame(){try{const d=localStorage.getItem(SAVE_KEY);if(d){const loaded=JSON.parse(d);Object.assign(state,loaded);return true}}catch(e){}return false}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
+
 function log(t){const d=document.getElementById('gameLog');d.innerHTML+=`<div class="logLine">${t}</div>`;d.scrollTop=d.scrollHeight}
 
 function getTotalAtk(){let a=state.atk;if(state.equipped.weapon){const i=ITEMS.find(x=>x.name===state.equipped.weapon);if(i)a+=i.atk||0}if(state.equipped.ring){const i=ITEMS.find(x=>x.name===state.equipped.ring);if(i)a+=i.atk||0}return a}
@@ -322,7 +327,7 @@ function dealDmg(dmg,who){
 }
 
 function onBattleWin(){
-  const e=state.curEnemy;state.gold+=e.gold;state.enemiesLeft--;
+  const e=state.curEnemy;state.gold+=e.gold;state.enemiesLeft--;saveGame();
   log(`✅ 击败${e.name}！获得${e.gold}金`);
   document.getElementById('battleResult').textContent=`🎉 胜利！+${e.gold}金`;document.getElementById('battleResult').className='result win';
   document.getElementById('battleResult').classList.remove('hidden');
@@ -345,7 +350,7 @@ function onBattleLose(){
   document.getElementById('battleResult').textContent='💀 你被击败了！';document.getElementById('battleResult').className='result lose';
   document.getElementById('battleResult').classList.remove('hidden');
   document.getElementById('btnRoll').classList.add('hidden');
-  state.hp=Math.floor(getTotalMaxHp()*0.3);state.gold=Math.floor(state.gold*0.5);
+  state.hp=Math.floor(getTotalMaxHp()*0.3);state.gold=Math.floor(state.gold*0.5);saveGame();
   log('💊 复活：30%HP，损失50%金币');
   setTimeout(()=>{document.getElementById('btnNextFloor').classList.remove('hidden');updateUI()},1000);
 }
@@ -361,13 +366,14 @@ function nextEnemy(){
 }
 
 function nextFloor(){
-  state.floor++;if(state.floor>10){onGameWin();return}
+  state.floor++;saveGame();if(state.floor>10){onGameWin();return}
   // Heal between floors
   state.hp=Math.min(getTotalMaxHp(),state.hp+Math.floor(getTotalMaxHp()*0.3));
   startFloor();updateUI();
 }
 
 function onGameWin(){
+  clearSave();
   document.getElementById('battleResult').textContent='🏆 恭喜通关！你是骰子之神！';document.getElementById('battleResult').className='result win';
   document.getElementById('battleResult').classList.remove('hidden');
   document.getElementById('btnRoll').classList.add('hidden');document.getElementById('btnNextFloor').classList.add('hidden');
@@ -412,7 +418,7 @@ function refreshShop(){
 
 function buyItem(i){
   const item=state.shopItems[i];if(state.gold<item.price){log('💰 金币不足！');return}
-  state.gold-=item.price;state.bag.push({...item,uid:Date.now()+Math.random()});
+  state.gold-=item.price;state.bag.push({...item,uid:Date.now()+Math.random()});saveGame();
   log(`🛒 购买：${item.icon} ${item.name}`);state.shopItems.splice(i,1);renderShop();updateUI();
 }
 
@@ -448,14 +454,14 @@ function equipItem(i){
     const old=ITEMS.find(x=>x.name===state.equipped[item.type]);
     if(old)state.bag.push({...old,uid:Date.now()+Math.random()});
   }
-  state.equipped[item.type]=item.name;state.bag.splice(i,1);
+  state.equipped[item.type]=item.name;state.bag.splice(i,1);saveGame();
   log(`🔧 装备：${item.icon} ${item.name}`);renderBag();updateUI();
 }
 
 function unequip(slot){
   const name=state.equipped[slot];if(!name)return;
   const item=ITEMS.find(x=>x.name===name);
-  if(item)state.bag.push({...item,uid:Date.now()+Math.random()});
+  if(item)state.bag.push({...item,uid:Date.now()+Math.random()});saveGame();
   state.equipped[slot]=null;log(`📤 卸下：${item.icon} ${item.name}`);renderBag();updateUI();
 }
 
@@ -470,12 +476,12 @@ function useItem(i){
 
 function sellItem(i){
   const item=state.bag[i];const gold=Math.floor(item.price*0.5);
-  state.gold+=gold;state.bag.splice(i,1);log(`💰 出售${item.name}，+${gold}金`);renderBag();updateUI();
+  state.gold+=gold;state.bag.splice(i,1);saveGame();log(`💰 出售${item.name}，+${gold}金`);renderBag();updateUI();
 }
 
 function sellAll(){
   let total=0;state.bag.forEach(item=>{total+=Math.floor(item.price*0.5)});
-  state.gold+=total;state.bag=[];log(`💰 一键出售，+${total}金`);renderBag();updateUI();
+  state.gold+=total;state.bag=[];saveGame();log(`💰 一键出售，+${total}金`);renderBag();updateUI();
 }
 
 function triggerEvent(){
@@ -490,13 +496,13 @@ function triggerEvent(){
       if(opt.cost&&state.gold<opt.cost){log('💰 金币不足！');return}
       if(opt.cost)state.gold-=opt.cost;
       if(opt.action==='buyRandom'){const pool=ITEMS.filter(x=>x.type!=='consumable');const item=pool[Math.floor(Math.random()*pool.length)];state.bag.push({...item,uid:Date.now()+Math.random()});log(`🎁 获得：${item.icon} ${item.name}`)}
-      else if(opt.action==='diceMod'){state.diceMod+=opt.val;log(`🎲 骰子修正${opt.val>0?'+':''}${opt.val}`)}
-      else if(opt.action==='removeDebuff'){state.diceMod=Math.max(0,state.diceMod);log('✨ 诅咒已驱散')}
-      else if(opt.action==='cheat'){if(Math.random()<0.5){const g=opt.mult*30;state.gold+=g;log(`🎰 揭穿庄家！+${g}金`)}else{state.gold=Math.max(0,state.gold-30);log('💀 没抓到，被罚30金')}}
-      else if(opt.action==='treasure'){const g=30+Math.floor(Math.random()*50);state.gold+=g;log(`💎 宝箱里有${g}金！`)}
-      else if(opt.action==='heal'){state.hp=Math.min(getTotalMaxHp(),state.hp+opt.val);log(`💚 恢复${opt.val}HP`)}
+      else if(opt.action==='diceMod'){state.diceMod+=opt.val;saveGame();log(`🎲 骰子修正${opt.val>0?'+':''}${opt.val}`)}
+      else if(opt.action==='removeDebuff'){state.diceMod=Math.max(0,state.diceMod);saveGame();log('✨ 诅咒已驱散')}
+      else if(opt.action==='cheat'){if(Math.random()<0.5){const g=opt.mult*30;state.gold+=g;saveGame();log(`🎰 揭穿庄家！+${g}金`)}else{state.gold=Math.max(0,state.gold-30);log('💀 没抓到，被罚30金')}}
+      else if(opt.action==='treasure'){const g=30+Math.floor(Math.random()*50);state.gold+=g;saveGame();log(`💎 宝箱里有${g}金！`)}
+      else if(opt.action==='heal'){state.hp=Math.min(getTotalMaxHp(),state.hp+opt.val);saveGame();log(`💚 恢复${opt.val}HP`)}
       else if(opt.action==='healBottle'){state.bag.push({...ITEMS.find(x=>x.name==='小药水'),uid:Date.now()+Math.random()});log('🧴 获得小药水')}
-      showScr('Battle');updateUI();
+      showScr('Battle');updateUI();saveGame();
     };
     btns.appendChild(btn);
   });
@@ -504,7 +510,8 @@ function triggerEvent(){
 }
 
 // Init
-startFloor();updateUI();
+if(!loadGame()){startFloor()}else{updateUI();const scrId=state.curEnemy?'Battle':'Event';showScr(scrId);if(state.curEnemy)showEnemy()}
+updateUI();
 </script>
 </body>
 </html>{

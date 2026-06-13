@@ -136,14 +136,20 @@ const RELICS=[
   {id:'vajra',name:'金刚杵',icon:'💎',desc:'每回合+1力量',onTurnStart:(s)=>{s.power=(s.power||0)+1}},
   {id:'anchor',name:'船锚',icon:'⚓',desc:'战斗开始+5护甲',onBattleStart:(s)=>{s.shield+=5}},
   {id:'horn',name:'号角',icon:'📯',desc:'每回合抽1张额外牌',onTurnStart:(s)=>{s.drawMod=(s.drawMod||0)+1}},
-  {id:'ring',name:'生命戒指',icon:'💍',desc:'每场战斗后恢复3HP',onBattleEnd:(s)=>{s.hp=Math.min(s.mhp,s.hp+3)}},
-  {id:'coin',name:'幸运币',icon:'🪙',desc:'战斗胜利+10金',onBattleEnd:(s)=>{s.gold+=10}},
+  {id:'ring',name:'生命戒指',icon:'💍',desc:'每场战斗后恢复3HP',onBattleEnd:(s)=>{s.hp=Math.min(s.mhp,s.hp+3);saveGame()}},
+  {id:'coin',name:'幸运币',icon:'🪙',desc:'战斗胜利+10金',onBattleEnd:(s)=>{s.gold+=10;saveGame()}},
   {id:'shield',name:'小盾',icon:'🛡️',desc:'每回合+2护甲',onTurnStart:(s)=>{s.shield+=2}},
   {id:'torch',name:'火把',icon:'🔦',desc:'灼烧伤害+2',passive:'burnDmg',val:2},
   {id:'fang',name:'毒牙',icon:'🦷',desc:'中毒伤害+2',passive:'poisonDmg',val:2}
 ];
 const INTENTS=['attack','defend','buff','heavy'];
 let s={hp:60,mhp:60,gold:80,energy:3,maxEnergy:3,shield:0,power:0,drawMod:0,chapter:1,node:0,deck:[],hand:[],discard:[],exhaust:[],relics:[],enemy:null,eHp:0,eMhp:0,eShield:0,ePoison:0,eBurn:0,eFreeze:0,eBuff:0,turn:0,curIntent:null,visited:[]};
+
+const SAVE_KEY='card_rogue_save';
+function saveGame(){try{const saveData={...s,enemy:null,hand:[],discard:[],exhaust:[],curIntent:null,turn:0};localStorage.setItem(SAVE_KEY,JSON.stringify(saveData))}catch(e){}}
+function loadGame(){try{const d=localStorage.getItem(SAVE_KEY);if(d){const loaded=JSON.parse(d);Object.assign(s,loaded);return true}}catch(e){}return false}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}}
+
 
 function log(t){const d=document.getElementById('battleLog');d.innerHTML=t+'<br>'+d.innerHTML;d.innerHTML=d.innerHTML.substring(0,300)}
 function show(id){document.querySelectorAll('.scene').forEach(x=>x.classList.remove('active'));document.getElementById('s'+id).classList.add('active')}
@@ -189,7 +195,7 @@ function playCard(i){
   let dmg=(c.dmg||0)+s.power;if(c.hits)dmg*=c.hits;
   if(dmg>0){let d=dmg;if(!c.pierce)d=Math.max(0,d-s.eShield);s.eHp-=d;s.eShield=Math.max(0,s.eShield-dmg);log(`⚔️ ${c.name}造成${d}伤害`)}
   if(c.blk){if(c.blk>0)s.shield+=c.blk;else{s.shield=Math.max(0,s.shield+c.blk)}log(`🛡️ +${c.blk}护甲`)}
-  if(c.heal)s.hp=Math.min(s.mhp,s.hp+c.heal),log(`💚 +${c.heal}HP`);
+  if(c.heal)s.hp=Math.min(s.mhp,s.hp+c.heal);saveGame(),log(`💚 +${c.heal}HP`);
   if(c.burn)s.eBurn+=c.burn,log(`🔥 敌人+${c.burn}灼烧`);
   if(c.poison)s.ePoison+=c.poison,log(`💀 敌人+${c.poison}中毒`);
   if(c.freeze)s.eFreeze+=c.freeze,log(`❄️ 敌人下回合-${c.freeze}攻击`);
@@ -235,11 +241,11 @@ function startBattle(enemyIdx){
 function onBattleWin(){
   s.relics.forEach(r=>{if(r.onBattleEnd)r.onBattleEnd(s)});
   const gold=15+s.chapter*5;const isBoss=BOSS_IDX.includes(ENEMIES.indexOf(s.enemy));
-  s.gold+=gold;
+  s.gold+=gold;saveGame();
   // Reward: choose 1 of 3 cards
   const pool=ALL_CARDS.filter(c=>Math.random()<0.5);const picks=[];while(picks.length<3&&pool.length>0){const idx=Math.floor(Math.random()*pool.length);picks.push(pool.splice(idx,1)[0])}
   let html=`<div>💰 +${gold}金</div>`;
-  if(isBoss){const rPool=RELICS.filter(r=>!s.relics.find(x=>x.id===r.id));if(rPool.length>0){const r=rPool[Math.floor(Math.random()*rPool.length)];s.relics.push(r);html+=`<div>🎁 遗物：${r.icon} ${r.name} - ${r.desc}</div>`}}
+  if(isBoss){const rPool=RELICS.filter(r=>!s.relics.find(x=>x.id===r.id));if(rPool.length>0){const r=rPool[Math.floor(Math.random()*rPool.length)];s.relics.push(r);saveGame();html+=`<div>🎁 遗物：${r.icon} ${r.name} - ${r.desc}</div>`}}
   html+=`<h3>选择一张卡牌加入牌组</h3><div class="rewardCards">`;
   picks.forEach((c,i)=>{html+=`<div class="card ${c.type}" onclick="pickReward(${i})" style="width:75px;height:100px"><div class="cost">${c.cost}</div><div class="icon">${c.icon}</div><div class="name">${c.name}</div><div class="desc">${c.desc}</div></div>`});
   html+=`</div><button class="btn" onclick="skipReward()">跳过</button>`;
@@ -247,11 +253,11 @@ function onBattleWin(){
   document.getElementById('rewardContent').innerHTML=html;show('Reward');
 }
 
-function pickReward(i){s.deck.push({...s._rewardPicks[i]});afterReward()}
+function pickReward(i){s.deck.push({...s._rewardPicks[i]});saveGame();afterReward()}
 function skipReward(){afterReward()}
-function afterReward(){s.node++;if(s.node>3){s.chapter++;s.node=1;if(s.chapter>3){onGameWin();return}}showMap()}
+function afterReward(){s.node++;saveGame();if(s.node>3){s.chapter++;saveGame();s.node=1;if(s.chapter>3){onGameWin();return}}showMap()}
 
-function showMap(){
+function showMap(){saveGame();
   let html=`<div style="text-align:center;margin:10px 0">第${s.chapter}章</div><div style="text-align:center">`;
   for(let i=1;i<=3;i++){
     const isBoss=i===3;const visited=s.visited.includes(s.chapter*10+i);const current=i===s.node;
@@ -273,8 +279,8 @@ function goNode(n){
 
 function triggerEvent(){
   const events=[
-    {icon:'🧙',title:'神秘商人',desc:'花50金买随机遗物？',opts:[{text:'购买(50金)',action:()=>{if(s.gold>=50){s.gold-=50;const p=RELICS.filter(r=>!s.relics.find(x=>x.id===r.id));if(p.length>0){const r=p[Math.floor(Math.random()*p.length)];s.relics.push(r);alert('获得：'+r.icon+r.name)}else alert('没有新遗物了')}else alert('金币不足')}},{text:'离开',action:()=>showMap()}]},
-    {icon:'💎',title:'宝箱',desc:'打开获得30-80金',opts:[{text:'打开',action:()=>{const g=30+Math.floor(Math.random()*50);s.gold+=g;alert('获得'+g+'金');showMap()}},{text:'离开',action:()=>showMap()}]},
+    {icon:'🧙',title:'神秘商人',desc:'花50金买随机遗物？',opts:[{text:'购买(50金)',action:()=>{if(s.gold>=50){s.gold-=50;saveGame();const p=RELICS.filter(r=>!s.relics.find(x=>x.id===r.id));if(p.length>0){const r=p[Math.floor(Math.random()*p.length)];s.relics.push(r);alert('获得：'+r.icon+r.name)}else alert('没有新遗物了')}else alert('金币不足')}},{text:'离开',action:()=>showMap()}]},
+    {icon:'💎',title:'宝箱',desc:'打开获得30-80金',opts:[{text:'打开',action:()=>{const g=30+Math.floor(Math.random()*50);s.gold+=g;saveGame();alert('获得'+g+'金');showMap()}},{text:'离开',action:()=>showMap()}]},
     {icon:'🔥',title:'祭坛',desc:'献祭一张牌获得力量？',opts:[{text:'献祭(移除一张打击)',action:()=>{const i=s.deck.findIndex(c=>c.id==='strike');if(i>=0){s.deck.splice(i,1);s.power+=2;alert('移除成功！力量+2')}showMap()}},{text:'离开',action:()=>showMap()}]}
   ];
   const ev=events[Math.floor(Math.random()*events.length)];
@@ -283,17 +289,17 @@ function triggerEvent(){
   document.getElementById('eventContent').innerHTML=html;show('Event');
 }
 
-function doRest(){s.hp=Math.min(s.mhp,s.hp+Math.floor(s.mhp*0.3));alert('恢复了30%HP');showMap()}
+function doRest(){s.hp=Math.min(s.mhp,s.hp+Math.floor(s.mhp*0.3));saveGame();alert('恢复了30%HP');showMap()}
 function doUpgrade(){const upg=s.deck.filter(c=>c.cost>0);if(upg.length>0){const c=upg[Math.floor(Math.random()*upg.length)];c.dmg=Math.floor((c.dmg||0)*1.3);c.blk=Math.floor((c.blk||0)*1.3);c.heal=Math.floor((c.heal||0)*1.3);alert(c.name+'已强化！')}showMap()}
 
 function leaveShop(){showMap()}
 
-function onGameOver(){document.getElementById('goInfo').innerHTML=`你倒在了第${s.chapter}章-${s.node}层<br>🃏 收集了${s.deck.length}张卡牌<br>💰 积累了${s.gold}金`;show('GameOver')}
-function onGameWin(){document.getElementById('winInfo').innerHTML=`你击败了混沌之王！<br>🃏 牌组${s.deck.length}张<br>💰 ${s.gold}金<br>🎁 ${s.relics.length}个遗物`;show('Win')}
-function restart(){location.reload()}
+clearSave();function onGameOver(){document.getElementById('goInfo').innerHTML=`你倒在了第${s.chapter}章-${s.node}层<br>🃏 收集了${s.deck.length}张卡牌<br>💰 积累了${s.gold}金`;show('GameOver')}
+clearSave();function onGameWin(){document.getElementById('winInfo').innerHTML=`你击败了混沌之王！<br>🃏 牌组${s.deck.length}张<br>💰 ${s.gold}金<br>🎁 ${s.relics.length}个遗物`;show('Win')}
+function restart(){clearSave();location.reload()}
 function startGame(){initDeck();s.relics.push({...RELICS[5]});showMap()}
 
-startGame();
+if(!loadGame()){startGame()}else{showMap();updateUI()}
 </script>
 </body>
 </html>
