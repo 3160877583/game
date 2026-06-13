@@ -327,7 +327,7 @@ function dealDmg(dmg,who){
 }
 
 function onBattleWin(){
-  const e=state.curEnemy;state.gold+=e.gold;state.enemiesLeft--;saveGame();
+  const e=state.curEnemy;state.gold+=e.gold;state.enemiesLeft--;state.curEnemy=null;state.curEnemyHp=0;saveGame();
   log(`✅ 击败${e.name}！获得${e.gold}金`);
   document.getElementById('battleResult').textContent=`🎉 胜利！+${e.gold}金`;document.getElementById('battleResult').className='result win';
   document.getElementById('battleResult').classList.remove('hidden');
