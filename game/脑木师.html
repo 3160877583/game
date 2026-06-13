@@ -361,14 +361,14 @@ var ENEMY_TYPES=[
 var BOSS={name:'脑魔',icon:'👾',color:'#ff00ff',hp:2000,speed:1.2,dmg:40,xp:200,coins:100,size:40};
 
 // ===== GAME STATE =====
-var player,x,y,weapon,enemies,projectiles,effects,wave,waveEnemies,waveTimer,coins;
+var player,x,y,weapons,enemies,projectiles,effects,wave,waveEnemies,waveTimer,coins;
 var gameRunning=false,gamePaused=false,shopOpen=false;
 var selectedWeapon='红肠';
 var keys={};
 var killCount=0,totalKills=0;
 var accCounts={spd:0,atk:0,hp:0,armor:0,range:0,lifesteal:0};
-var weaponLevel=1;
 var waveCoinsEarned=0;
+var currentWeaponIdx=0;
 
 // ===== INIT =====
 cvs=document.getElementById('game');
@@ -407,8 +407,7 @@ function startGame(){
   initAudio();
   document.getElementById('startOverlay').classList.add('hide');
   x=W/2;y=H/2;
-  weapon=selectedWeapon;
-  weaponLevel=1;
+  weapons=[{name:selectedWeapon,level:1}];
   enemies=[];projectiles=[];effects=[];
   wave=0;coins=0;killCount=0;totalKills=0;
   accCounts={spd:0,atk:0,hp:0,armor:0,range:0,lifesteal:0};
@@ -424,7 +423,7 @@ function getDmgMult(){return 1+Math.min(accCounts.atk*0.20,2.0)}
 function getArmor(){return Math.min(accCounts.armor*5,50)}
 function getRangeMult(){return 1+Math.min(accCounts.range*0.15,1.0)}
 function getLifesteal(){return Math.min(accCounts.lifesteal*0.03,0.30)}
-function getCooldown(){var w=WEAPONS[weapon];return Math.round(w.cooldown*Math.pow(0.88,weaponLevel-1))}
+function getCooldown(){var w=WEAPONS[weapons[currentWeaponIdx].name];return Math.round(w.cooldown*Math.pow(0.88,weapons[currentWeaponIdx].level-1))}
 
 // ===== WAVE SYSTEM =====
 function nextWave(){
@@ -512,7 +511,9 @@ function updatePlayer(){
 // ===== COMBAT =====
 var attackTimer=0;
 function updateCombat(){
-  var w=WEAPONS[weapon];
+  if(!weapons.length)return;
+  var cw=weapons[currentWeaponIdx];
+  var w=WEAPONS[cw.name];
   attackTimer+=TICK;
   if(attackTimer<getCooldown()){
     // Still on cooldown
@@ -527,20 +528,22 @@ function updateCombat(){
     if(nearest && nd<range+nearest.size){
       attackTimer=0;
       if(w.type==='melee'){
-        meleeAttack(nearest,w);
+        meleeAttack(nearest,w,cw.level);
       } else {
-        shootProjectile(nearest,w);
+        shootProjectile(nearest,w,cw.level);
       }
+      // Cycle to next weapon
+      currentWeaponIdx=(currentWeaponIdx+1)%weapons.length;
     }
   }
 }
 
-function meleeAttack(target,w){
-  var dmg=Math.round(w.baseDmg*getDmgMult()*weaponLevel);
+function meleeAttack(target,w,lv){
+  var dmg=Math.round(w.baseDmg*getDmgMult()*lv);
   target.hp-=dmg;
   target.hitTimer=8;
   addEffect(target.x,target.y,'-'+dmg,'#ff4444',20);
-  if(weapon==='红肠')sndSausage();else sndWood();
+  if(w.icon==='🌭')sndSausage();else sndWood();
   // Lifesteal
   var ls=getLifesteal();
   if(ls>0){
@@ -552,13 +555,13 @@ function meleeAttack(target,w){
   addEffect(x+Math.cos(angle)*30,y+Math.sin(angle)*30,w.icon,30,0);
 }
 
-function shootProjectile(target,w){
+function shootProjectile(target,w,lv){
   var angle=Math.atan2(target.y-y,target.x-x);
   projectiles.push({
     x:x,y:y,
     vx:Math.cos(angle)*w.projSpeed,
     vy:Math.sin(angle)*w.projSpeed,
-    dmg:Math.round(w.baseDmg*getDmgMult()*weaponLevel),
+    dmg:Math.round(w.baseDmg*getDmgMult()*lv),
     size:w.projSize,
     color:w.color,
     life:60
@@ -665,14 +668,36 @@ function closeShop(){
 }
 
 function renderShopItems(){
-  // Weapons
-  var wh='<h3>🗡️ 武器升级</h3>';
-  var upgCost=weaponLevel*25;
-  var canUpg=coins>=upgCost&&weaponLevel<6;
-  wh+='<div class="shop-item'+(canUpg?'':' disabled')+'" onclick="upgradeWeapon()">'
-    +'<div class="si-info"><div class="si-name">'+WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel+(weaponLevel>=6?' (满级)':' → Lv.'+(weaponLevel+1))+'</div>'
-    +'<div class="si-desc">伤害 ×'+weaponLevel+' · 攻速 '+getCooldown()+'ms'+(weaponLevel<6?' → '+Math.round(WEAPONS[weapon].cooldown*Math.pow(0.88,weaponLevel))+'ms':'')+'</div></div>'
-    +'<div class="si-price">'+(weaponLevel>=6?'✅满级':'🪙 '+upgCost)+'</div></div>';
+  // Equipped weapons
+  var wh='<h3>🗡️ 已装备武器 ('+weapons.length+'/6)</h3>';
+  for(var i=0;i<weapons.length;i++){
+    var cw=weapons[i];
+    var w=WEAPONS[cw.name];
+    var lv=cw.level;
+    var upgCost=lv*25;
+    var canUpg=coins>=upgCost&&lv<6;
+    wh+='<div class="shop-item'+(canUpg?'':' disabled')+'" onclick="upgradeWeapon('+i+')">'
+      +'<div class="si-info"><div class="si-name">'+w.icon+' '+cw.name+' Lv.'+lv+(lv>=6?' (满级)':' → Lv.'+(lv+1))+'</div>'
+      +'<div class="si-desc">伤害 ×'+lv+' · 攻速 '+Math.round(w.cooldown*Math.pow(0.88,lv-1))+'ms'+(lv<6?' → '+Math.round(w.cooldown*Math.pow(0.88,lv))+'ms':'')+'</div></div>'
+      +'<div class="si-price">'+(lv>=6?'✅满级':'🪙 '+upgCost)+'</div></div>';
+  }
+  // Buy new weapons
+  if(weapons.length<6){
+    wh+='<h3 style="margin-top:12px">🛒 购买新武器</h3>';
+    for(var k in WEAPONS){
+      var owned=false;
+      for(var i=0;i<weapons.length;i++)if(weapons[i].name===k)owned=true;
+      if(!owned){
+        var w=WEAPONS[k];
+        var cost=50;
+        var canBuy=coins>=cost;
+        wh+='<div class="shop-item'+(canBuy?'':' disabled')+'" onclick="buyWeapon(\''+k+'\')">'
+          +'<div class="si-info"><div class="si-name">'+w.icon+' '+k+'</div>'
+          +'<div class="si-desc">'+w.desc+'</div></div>'
+          +'<div class="si-price">🪙 '+cost+'</div></div>';
+      }
+    }
+  }
   document.getElementById('shopWeapons').innerHTML=wh;
 
   // Accessories
@@ -692,11 +717,25 @@ function renderShopItems(){
   document.getElementById('shopAccessories').innerHTML=ah;
 }
 
-function upgradeWeapon(){
-  var cost=weaponLevel*25;
-  if(coins>=cost&&weaponLevel<6){
+function upgradeWeapon(idx){
+  var cw=weapons[idx];
+  var cost=cw.level*25;
+  if(coins>=cost&&cw.level<6){
     coins-=cost;
-    weaponLevel++;
+    cw.level++;
+    sndBuy();
+    document.getElementById('shopCoins').textContent=coins;
+    renderShopItems();
+    updateHud();
+  }
+}
+
+function buyWeapon(name){
+  if(weapons.length>=6)return;
+  var cost=50;
+  if(coins>=cost){
+    coins-=cost;
+    weapons.push({name:name,level:1});
     sndBuy();
     document.getElementById('shopCoins').textContent=coins;
     renderShopItems();
@@ -729,7 +768,13 @@ function updateHud(){
   document.getElementById('hpText').textContent=Math.max(0,Math.round(player.hp))+'/'+player.maxHp;
   document.getElementById('waveText').textContent=wave;
   document.getElementById('coinText').textContent=coins;
-  document.getElementById('weaponInfo').textContent=WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel;
+  // Show all weapons
+  var wStr='';
+  for(var i=0;i<weapons.length;i++){
+    var cw=weapons[i];
+    wStr+=WEAPONS[cw.name].icon+''+cw.name+'Lv.'+cw.level+' ';
+  }
+  document.getElementById('weaponInfo').textContent=wStr;
   document.getElementById('statInfo').textContent='速度:'+Math.round(accCounts.spd*15)+'% 攻击:'+Math.round(accCounts.atk*20)+'% 护甲:'+getArmor();
 }
 
@@ -807,7 +852,8 @@ function draw(){
   ctx.fillText('👾',x,y);
 
   // Weapon indicator
-  var w=WEAPONS[weapon];
+  var cw=weapons[currentWeaponIdx];
+  var w=WEAPONS[cw.name];
   if(attackTimer<getCooldown()*0.8){
     ctx.globalAlpha=0.5;
   }
