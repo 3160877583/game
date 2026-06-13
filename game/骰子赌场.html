@@ -252,7 +252,7 @@ function startFloor(){
   state.curEnemyHp=state.curEnemy.hp;
   state.enemiesLeft=isBoss?1:2+Math.floor(f*0.5);
   showEnemy();showScr('Battle');
-  document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnRoll').disabled=false;
+  var rollBtn=document.getElementById('btnRoll');rollBtn.classList.remove('hidden');rollBtn.disabled=false;rollBtn.style.pointerEvents='auto';rollBtn.style.opacity='1';
   document.getElementById('btnNextEnemy').classList.add('hidden');
   document.getElementById('btnNextFloor').classList.add('hidden');
   document.getElementById('battleResult').classList.add('hidden');
@@ -360,7 +360,8 @@ function nextEnemy(){
   const idx=pool[Math.floor(Math.random()*pool.length)];const e=ENEMIES[idx];const mult=1+(f-1)*0.3;
   state.curEnemy={...e,hp:Math.floor(e.hp*mult),atk:Math.floor(e.atk*mult),def:Math.floor(e.def*mult),gold:Math.floor(e.gold*mult),isBoss:false};
   state.curEnemyHp=state.curEnemy.hp;showEnemy();
-  document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnRoll').disabled=false;
+  var rollBtn=document.getElementById('btnRoll');rollBtn.classList.remove('hidden');rollBtn.disabled=false;rollBtn.style.pointerEvents='auto';rollBtn.style.opacity='1';
+  document.getElementById('btnNextEnemy').classList.add('hidden');
   document.getElementById('battleResult').classList.add('hidden');document.getElementById('battleInfo').textContent='投骰子决定谁先手！';
   document.getElementById('floorInfo').textContent=`第${f}层 (${state.enemiesLeft}个敌人)`;updateUI();
 }
@@ -502,7 +503,7 @@ function triggerEvent(){
       else if(opt.action==='treasure'){const g=30+Math.floor(Math.random()*50);state.gold+=g;saveGame();log(`💎 宝箱里有${g}金！`)}
       else if(opt.action==='heal'){state.hp=Math.min(getTotalMaxHp(),state.hp+opt.val);saveGame();log(`💚 恢复${opt.val}HP`)}
       else if(opt.action==='healBottle'){state.bag.push({...ITEMS.find(x=>x.name==='小药水'),uid:Date.now()+Math.random()});log('🧴 获得小药水')}
-      showScr('Battle');updateUI();saveGame();
+      showScr('Battle');var rollBtn2=document.getElementById('btnRoll');if(!rollBtn2.classList.contains('hidden')){rollBtn2.disabled=false;rollBtn2.style.pointerEvents='auto';rollBtn2.style.opacity='1'}updateUI();saveGame();
     };
     btns.appendChild(btn);
   });
