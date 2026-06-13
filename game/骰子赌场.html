@@ -252,7 +252,7 @@ function startFloor(){
   state.curEnemyHp=state.curEnemy.hp;
   state.enemiesLeft=isBoss?1:2+Math.floor(f*0.5);
   showEnemy();showScr('Battle');
-  document.getElementById('btnRoll').classList.remove('hidden');
+  document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnRoll').disabled=false;
   document.getElementById('btnNextEnemy').classList.add('hidden');
   document.getElementById('btnNextFloor').classList.add('hidden');
   document.getElementById('battleResult').classList.add('hidden');
@@ -360,7 +360,7 @@ function nextEnemy(){
   const idx=pool[Math.floor(Math.random()*pool.length)];const e=ENEMIES[idx];const mult=1+(f-1)*0.3;
   state.curEnemy={...e,hp:Math.floor(e.hp*mult),atk:Math.floor(e.atk*mult),def:Math.floor(e.def*mult),gold:Math.floor(e.gold*mult),isBoss:false};
   state.curEnemyHp=state.curEnemy.hp;showEnemy();
-  document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnRoll').classList.remove('hidden');
+  document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnRoll').disabled=false;
   document.getElementById('battleResult').classList.add('hidden');document.getElementById('battleInfo').textContent='投骰子决定谁先手！';
   document.getElementById('floorInfo').textContent=`第${f}层 (${state.enemiesLeft}个敌人)`;updateUI();
 }
@@ -510,7 +510,7 @@ function triggerEvent(){
 }
 
 // Init
-if(!loadGame()){startFloor()}else{updateUI();const scrId=state.curEnemy?'Battle':'Event';showScr(scrId);if(state.curEnemy){showEnemy();if(state.curEnemyHp>0){document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnNextFloor').classList.add('hidden');document.getElementById('battleResult').classList.add('hidden')}else if(state.enemiesLeft>0){document.getElementById('btnNextEnemy').classList.remove('hidden');document.getElementById('btnRoll').classList.add('hidden')}else{document.getElementById('btnNextFloor').classList.remove('hidden');document.getElementById('btnRoll').classList.add('hidden')}}}
+if(!loadGame()){startFloor()}else{updateUI();const scrId=state.curEnemy?'Battle':'Event';showScr(scrId);if(state.curEnemy){showEnemy();if(state.curEnemyHp>0){document.getElementById('btnRoll').classList.remove('hidden');document.getElementById('btnRoll').disabled=false;document.getElementById('btnNextEnemy').classList.add('hidden');document.getElementById('btnNextFloor').classList.add('hidden');document.getElementById('battleResult').classList.add('hidden')}else if(state.enemiesLeft>0){document.getElementById('btnNextEnemy').classList.remove('hidden');document.getElementById('btnRoll').classList.add('hidden')}else{document.getElementById('btnNextFloor').classList.remove('hidden');document.getElementById('btnRoll').classList.add('hidden')}}}
 updateUI();
 </script>
 </body>
