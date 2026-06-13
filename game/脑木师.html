@@ -83,6 +83,32 @@ canvas{display:block;background:#111;border-radius:8px}
 // ===== GAME CONFIG =====
 var W=0,H=0,cvs,ctx;
 var TICK=1000/60;
+
+// ===== AUDIO =====
+var audioCtx=null;
+function initAudio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}
+function playSound(freq,dur,type,volume){
+  if(!audioCtx)return;
+  try{
+    var osc=audioCtx.createOscillator();
+    var gain=audioCtx.createGain();
+    osc.type=type||'square';
+    osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume||0.15,audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+    osc.connect(gain);gain.connect(audioCtx.destination);
+    osc.start();osc.stop(audioCtx.currentTime+dur);
+  }catch(e){}
+}
+function sndMelee(){playSound(200,0.1,'sawtooth',0.2);playSound(150,0.08,'square',0.1)}
+function sndRange(){playSound(600,0.15,'sine',0.12);playSound(800,0.1,'sine',0.08)}
+function sndHit(){playSound(100,0.08,'square',0.15)}
+function sndKill(){playSound(300,0.1,'square',0.12);setTimeout(function(){playSound(450,0.15,'square',0.1)},80)}
+function sndCoin(){playSound(800,0.08,'sine',0.1);setTimeout(function(){playSound(1200,0.1,'sine',0.08)},60)}
+function sndBuy(){playSound(500,0.1,'sine',0.12);setTimeout(function(){playSound(700,0.12,'sine',0.1)},80)}
+function sndHurt(){playSound(120,0.15,'sawtooth',0.2)}
+function sndWave(){playSound(400,0.15,'sine',0.1);setTimeout(function(){playSound(600,0.15,'sine',0.1)},150);setTimeout(function(){playSound(800,0.2,'sine',0.12)},300)}
+function sndBoss(){playSound(200,0.3,'sawtooth',0.15);setTimeout(function(){playSound(150,0.3,'sawtooth',0.15)},200)}
 var PLAYER_SPEED=3;
 var PLAYER_BASE_HP=100;
 var ENEMY_SPAWN_DIST=400;
@@ -160,6 +186,7 @@ function selectWeapon(k){
 
 // ===== GAME START =====
 function startGame(){
+  initAudio();
   document.getElementById('startOverlay').classList.add('hide');
   x=W/2;y=H/2;
   weapon=selectedWeapon;
@@ -188,8 +215,10 @@ function nextWave(){
   var banner=document.getElementById('waveBanner');
   if(wave===20){
     banner.textContent='⚠️ BOSS战！';
+    sndBoss();
   } else {
     banner.textContent='🌊 第 '+wave+' 波';
+    sndWave();
   }
   banner.classList.add('show');
   setTimeout(function(){banner.classList.remove('show')},1500);
@@ -292,6 +321,7 @@ function meleeAttack(target,w){
   target.hp-=dmg;
   target.hitTimer=8;
   addEffect(target.x,target.y,'-'+dmg,'#ff4444',20);
+  sndMelee();
   // Lifesteal
   var ls=getLifesteal();
   if(ls>0){
@@ -314,6 +344,7 @@ function shootProjectile(target,w){
     color:w.color,
     life:60
   });
+  sndRange();
 }
 
 function updateProjectiles(){
@@ -357,6 +388,7 @@ function updateEnemies(){
         var dmg=Math.max(1,e.dmg-getArmor());
         player.hp-=dmg;
         addEffect(x,y-20,'-'+dmg,'#ff6666',25);
+        sndHurt();
         e.attackCd=30;
       }
     }
@@ -368,6 +400,7 @@ function updateEnemies(){
       waveCoinsEarned+=e.coins;
       killCount++;totalKills++;
       addEffect(e.x,e.y,'+'+e.coins+'🪙','#ffd700',30);
+      sndKill();
       enemies.splice(i,1);
     }
   }
@@ -445,6 +478,7 @@ function upgradeWeapon(){
   if(coins>=cost&&weaponLevel<6){
     coins-=cost;
     weaponLevel++;
+    sndBuy();
     document.getElementById('shopCoins').textContent=coins;
     renderShopItems();
     updateHud();
@@ -462,6 +496,7 @@ function buyAccessory(idx){
     accCounts[a.stat]++;
     player.maxHp=getMaxHp();
     player.hp=Math.min(player.hp+30,player.maxHp);
+    sndBuy();
     document.getElementById('shopCoins').textContent=coins;
     renderShopItems();
     updateHud();
