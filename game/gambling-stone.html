@@ -84,7 +84,7 @@ h2{color:var(--gold);font-size:18px;margin-bottom:10px}
 </style>
 </head>
 <body>
-<div class="hdr"><h1>💎 翡翠赌石坊</h1><div><span class="money" id="hdrMoney">💰 10,000</span><span class="xpi" id="hdrXp">XP:0</span></div></div>
+<div class="hdr"><h1>💎 翡翠赌石坊</h1><div><button onclick="washDishes()" id="washBtn" style="background:none;border:1px solid var(--gold);color:var(--gold);padding:2px 8px;border-radius:12px;font-size:12px;cursor:pointer;margin-right:8px">🍽️洗盘</button><span class="money" id="hdrMoney">💰 10,000</span><span class="xpi" id="hdrXp">XP:0</span></div></div>
 <div class="tabs" id="tabs"></div>
 <div class="pnl show" id="pnl-market"></div>
 <div class="pnl" id="pnl-workshop"></div>
@@ -853,6 +853,18 @@ function doPartTime(){
       '<div class="mkt-price">+💰'+fmt(j.r)+'</div></div></div>'
   }
   showOv(h)
+}
+var _washCd=0;
+function washDishes(){
+  var now=Date.now();
+  if(now<_washCd){toast('休息一下，'+Math.ceil((_washCd-now)/1000)+'秒后再洗');return}
+  _washCd=now+2000;
+  var r=50+Math.floor(Math.random()*100);
+  G.money+=r;G.stats.pt++;G.stats.ptEarned+=r;
+  addXP(2);
+  addLog('🍽️ 洗了一个盘子 +💰'+r,'work');
+  toast('🍽️ 洗干净一个 +💰'+r);
+  updateHdr();save()
 }
 var PT_JOBS=[{name:"🧹 打扫卫生",r:50,t:3},{name:"📦 快递分拣",r:150,t:5},{name:"🍽️ 洗碗工",r:300,t:8},{name:"🏪 摆地摊",r:400,t:7},{name:"📚 家教",r:500,t:6},{name:"🛵 跑外卖",r:600,t:8},{name:"💻 写代码",r:1500,t:12}];
 function workJob(idx){
