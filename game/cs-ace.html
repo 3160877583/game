@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CS 五杀</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Arial',sans-serif;height:100vh;position:relative}
+#canvas{width:100%;height:100%;position:absolute;top:0;left:0}
+
+/* 击杀播报 */
+.kill-feed{position:absolute;top:20px;right:20px;display:flex;flex-direction:column;gap:4px;z-index:10}
+.kill-item{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:4px;transform:translateX(120%);opacity:0;transition:all 0.3s;white-space:nowrap}
+.kill-item.show{transform:translateX(0);opacity:1}
+.kill-item.ct{background:rgba(90,160,255,0.85)}
+.kill-item.t{background:rgba(255,180,50,0.85)}
+.kill-name{color:#fff;font-weight:bold;font-size:14px;text-shadow:1px 1px 2px rgba(0,0,0,0.8)}
+.kill-weapon{color:#ddd;font-size:12px}
+.kill-headshot{color:#ff4444;font-size:11px;margin-left:2px}
+
+/* 击杀计数 */
+.kill-counter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;pointer-events:none}
+.kill-number{font-size:120px;font-weight:900;color:#ff4444;text-shadow:0 0 30px rgba(255,68,68,0.8),0 0 60px rgba(255,68,68,0.4);opacity:0;transform:scale(2);transition:all 0.3s}
+.kill-number.show{opacity:1;transform:scale(1)}
+.kill-label{font-size:36px;color:#fff;text-align:center;text-shadow:0 0 10px rgba(255,255,255,0.8);opacity:0;transition:all 0.3s;margin-top:-10px}
+.kill-label.show{opacity:1}
+
+/* ACE */
+.ace-text{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);z-index:25;pointer-events:none}
+.ace-main{font-size:80px;font-weight:900;color:#ffcc00;text-shadow:0 0 30px rgba(255,204,0,0.8),0 0 60px rgba(255,204,0,0.4);opacity:0;letter-spacing:15px;transition:all 0.5s}
+.ace-main.show{opacity:1}
+.ace-sub{font-size:24px;color:#fff;text-align:center;opacity:0;transition:all 0.5s 0.3s;text-shadow:0 0 10px rgba(255,255,255,0.8)}
+.ace-sub.show{opacity:1}
+
+/* 击杀特效 */
+.hit-marker{position:absolute;z-index:15;pointer-events:none;opacity:0}
+.hit-marker.show{opacity:1;animation:hitFade 0.5s forwards}
+@keyframes hitFade{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2)}}
+
+/* 血液效果 */
+.blood{position:absolute;z-index:5;pointer-events:none;opacity:0}
+.blood.show{opacity:1;animation:bloodFade 1s forwards}
+@keyframes bloodFade{0%{opacity:0.8}100%{opacity:0}}
+
+/* 准星 */
+.crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:30;pointer-events:none}
+.crosshair div{position:absolute;background:#0f0}
+.ch-h{width:20px;height:2px;top:50%;left:50%;transform:translate(-50%,-50%)}
+.ch-v{width:2px;height:20px;top:50%;left:50%;transform:translate(-50%,-50%)}
+
+/* 提示 */
+.tip{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:30;color:#fff;font-size:16px;opacity:0.6;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:0.6}50%{opacity:0.2}}
+
+/* 结算画面 */
+.result{position:absolute;top:0;left:0;width:100%;height:100%;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);opacity:0;pointer-events:none;transition:opacity 0.5s}
+.result.show{opacity:1;pointer-events:auto}
+.result-title{font-size:48px;font-weight:900;color:#ffcc00;text-shadow:0 0 20px rgba(255,204,0,0.8);margin-bottom:10px}
+.result-ace{font-size:100px;font-weight:900;color:#ff4444;text-shadow:0 0 40px rgba(255,68,68,0.8);margin-bottom:20px}
+.result-stats{color:#aaa;font-size:18px;margin-bottom:30px;text-align:center;line-height:1.8}
+.result-btn{padding:12px 40px;font-size:18px;background:#ff4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold}
+.result-btn:hover{background:#ff6666}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div class="kill-feed" id="killFeed"></div>
+
+<div class="kill-counter">
+  <div class="kill-number" id="killNum">5</div>
+  <div class="kill-label" id="killLabel">KILLS</div>
+</div>
+
+<div class="ace-text">
+  <div class="ace-main" id="aceMain">ACE</div>
+  <div class="ace-sub" id="aceSub">— 全灭敌方 —</div>
+</div>
+
+<div class="crosshair">
+  <div class="ch-h"></div>
+  <div class="ch-v"></div>
+</div>
+
+<div class="tip" id="tip">点击开始 ACE 演示</div>
+
+<div class="result" id="result">
+  <div class="result-title">ROUND WIN</div>
+  <div class="result-ace">ACE</div>
+  <div class="result-stats">
+    击杀：5 / 命中率：78% / 爆头率：60%<br>
+    RWS：25.0 / MVP ★
+  </div>
+  <button class="result-btn" onclick="location.reload()">再来一次</button>
+</div>
+
+<script>
+// ===== AUDIO =====
+var audioCtx=null;
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+
+function playShot(){
+  if(!audioCtx)return;
+  var t=audioCtx.currentTime;
+  // AK shot
+  var n=audioCtx.createBufferSource();
+  var buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.08,audioCtx.sampleRate);
+  var d=buf.getChannelData(0);
+  for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.exp(-i/1000);
+  n.buffer=buf;
+  var g=audioCtx.createGain();
+  g.gain.setValueAtTime(0.4,t);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.08);
+  var f=audioCtx.createBiquadFilter();
+  f.type='lowpass';f.frequency.setValueAtTime(3000,t);
+  n.connect(f);f.connect(g);g.connect(audioCtx.destination);
+  n.start(t);
+}
+
+function playKill(){
+  if(!audioCtx)return;
+  var t=audioCtx.currentTime;
+  [600,800,1000].forEach(function(freq,i){
+    var o=audioCtx.createOscillator();
+    var g=audioCtx.createGain();
+    o.type='square';
+    o.frequency.setValueAtTime(freq,t+i*0.06);
+    g.gain.setValueAtTime(0.15,t+i*0.06);
+    g.gain.exponentialRampToValueAtTime(0.001,t+i*0.06+0.1);
+    o.connect(g);g.connect(audioCtx.destination);
+    o.start(t+i*0.06);o.stop(t+i*0.06+0.1);
+  });
+}
+
+function playHeadshot(){
+  if(!audioCtx)return;
+  var t=audioCtx.currentTime;
+  var o=audioCtx.createOscillator();
+  var g=audioCtx.createGain();
+  o.type='sawtooth';
+  o.frequency.setValueAtTime(800,t);
+  o.frequency.exponentialRampToValueAtTime(200,t+0.15);
+  g.gain.setValueAtTime(0.2,t);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+  o.connect(g);g.connect(audioCtx.destination);
+  o.start(t);o.stop(t+0.15);
+}
+
+function playACE(){
+  if(!audioCtx)return;
+  var t=audioCtx.currentTime;
+  [400,500,600,800,1000].forEach(function(freq,i){
+    var o=audioCtx.createOscillator();
+    var g=audioCtx.createGain();
+    o.type='sine';
+    o.frequency.setValueAtTime(freq,t+i*0.12);
+    g.gain.setValueAtTime(0.15,t+i*0.12);
+    g.gain.exponentialRampToValueAtTime(0.001,t+i*0.12+0.2);
+    o.connect(g);g.connect(audioCtx.destination);
+    o.start(t+i*0.12);o.stop(t+i*0.12+0.2);
+  });
+}
+
+// ===== DATA =====
+var kills=[
+  {name:'Enemy_AK',weapon:'AK47',headshot:true,time:500},
+  {name:'Enemy_M4',weapon:'AK47',headshot:false,time:1500},
+  {name:'Enemy_AWP',weapon:'AK47',headshot:true,time:2800},
+  {name:'Enemy_DE',weapon:'AK47',headshot:false,time:3800},
+  {name:'Enemy_P90',weapon:'AK47',headshot:true,time:5000}
+];
+
+var playerNames=['You'];
+var ctnames=['CT_1','CT_2','CT_3','CT_4','CT_5'];
+var tnames=['T_1','T_2','T_3','T_4','T_5'];
+
+// ===== CANVAS =====
+var cvs=document.getElementById('canvas');
+var ctx=cvs.getContext('2d');
+var W,H;
+
+function resize(){
+  W=window.innerWidth;H=window.innerHeight;
+  cvs.width=W;cvs.height=H;
+  drawMap();
+}
+window.addEventListener('resize',resize);
+
+// Map elements
+var walls=[];
+var spawnAreas=[];
+
+function generateMap(){
+  walls=[];
+  // Central obstacles
+  walls.push({x:W*0.3,y:H*0.3,w:W*0.08,h:H*0.15});
+  walls.push({x:W*0.6,y:H*0.5,w:W*0.08,h:H*0.15});
+  walls.push({x:W*0.45,y:H*0.7,w:W*0.1,h:H*0.05});
+  walls.push({x:W*0.2,y:H*0.6,w:W*0.05,h:H*0.1});
+  walls.push({x:W*0.75,y:H*0.3,w:W*0.05,h:H*0.12});
+  // CT spawn
+  spawnAreas.push({x:W*0.1,y:H*0.8,w:W*0.15,h:H*0.15,type:'ct'});
+  // T spawn
+  spawnAreas.push({x:W*0.75,y:H*0.1,w:W*0.15,h:H*0.15,type:'t'});
+}
+
+function drawMap(){
+  // Floor
+  ctx.fillStyle='#2a2a2a';
+  ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='#333';
+  ctx.lineWidth=1;
+  for(var x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(var y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+  // Walls
+  ctx.fillStyle='#555';
+  for(var i=0;i<walls.length;i++){
+    var w=walls[i];
+    ctx.fillRect(w.x,w.y,w.w,w.h);
+    ctx.strokeStyle='#666';
+    ctx.strokeRect(w.x,w.y,w.w,w.h);
+  }
+  // Spawn areas
+  for(var i=0;i<spawnAreas.length;i++){
+    var s=spawnAreas[i];
+    ctx.fillStyle=s.type==='ct'?'rgba(90,160,255,0.15)':'rgba(255,180,50,0.15)';
+    ctx.fillRect(s.x,s.y,s.w,s.h);
+  }
+}
+
+// ===== PLAYERS =====
+var players=[];
+var bullets=[];
+
+function createPlayers(){
+  players=[];
+  // CT players (team 1) - left side
+  for(var i=0;i<5;i++){
+    players.push({
+      x:W*0.12+Math.random()*W*0.1,
+      y:H*0.82+Math.random()*H*0.1,
+      team:'ct',
+      alive:true,
+      hp:100,
+      name:ctnames[i],
+      targetX:0,targetY:0,
+      moving:false,
+      deadTime:0,
+      size:12
+    });
+  }
+  // T players (team 2) - right side
+  for(var i=0;i<5;i++){
+    players.push({
+      x:W*0.77+Math.random()*W*0.1,
+      y:H*0.12+Math.random()*H*0.1,
+      team:'t',
+      alive:true,
+      hp:100,
+      name:tnames[i],
+      targetX:0,targetY:0,
+      moving:false,
+      deadTime:0,
+      size:12
+    });
+  }
+  // Player is CT_1
+  players[0].name='You';
+}
+
+function drawPlayers(){
+  for(var i=0;i<players.length;i++){
+    var p=players[i];
+    if(!p.alive){
+      // Dead body
+      ctx.globalAlpha=0.3;
+      ctx.fillStyle=p.team==='ct'?'#5aa0ff':'#ffb432';
+      ctx.beginPath();ctx.arc(p.x,p.y,p.size*0.7,0,Math.PI*2);ctx.fill();
+      ctx.globalAlpha=1;
+      continue;
+    }
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.beginPath();ctx.ellipse(p.x,p.y+2,p.size,p.size*0.4,0,0,Math.PI*2);ctx.fill();
+    // Body
+    ctx.fillStyle=p.team==='ct'?'#5aa0ff':'#ffb432';
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+    // Outline
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.stroke();
+    // HP bar
+    if(p.hp<100){
+      var bw=24;
+      ctx.fillStyle='#333';
+      ctx.fillRect(p.x-bw/2,p.y-p.size-8,bw,3);
+      ctx.fillStyle=p.hp>50?'#4f4':'#f44';
+      ctx.fillRect(p.x-bw/2,p.y-p.size-8,bw*(p.hp/100),3);
+    }
+  }
+}
+
+function drawBullets(){
+  for(var i=bullets.length-1;i>=0;i--){
+    var b=bullets[i];
+    ctx.strokeStyle=b.color;
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(b.x,b.y);
+    ctx.lineTo(b.x-b.vx*3,b.y-b.vy*3);
+    ctx.stroke();
+    // Glow
+    ctx.shadowColor=b.color;
+    ctx.shadowBlur=5;
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+}
+
+// ===== ANIMATION =====
+var killFeed=[];
+var killCount=0;
+var started=false;
+var animTime=0;
+var particles=[];
+
+function addKillFeed(kill){
+  var feed=document.getElementById('killFeed');
+  var div=document.createElement('div');
+  div.className='kill-item ct';
+  div.innerHTML='<span class="kill-name">You</span>'
+    +'<span class="kill-weapon">'+kill.weapon+'</span>'
+    +'<span class="kill-name">'+kill.name+'</span>'
+    +'<span class="kill-headshot">'+(kill.headshot?'✦ HS':'')+'</span>';
+  feed.appendChild(div);
+  // Keep max 5
+  while(feed.children.length>5)feed.removeChild(feed.firstChild);
+  setTimeout(function(){div.classList.add('show')},50);
+  // Remove after 4s
+  setTimeout(function(){
+    div.classList.remove('show');
+    setTimeout(function(){if(div.parentNode)div.parentNode.removeChild(div)},300);
+  },4000);
+}
+
+function showKillCounter(num){
+  var el=document.getElementById('killNum');
+  var label=document.getElementById('killLabel');
+  el.textContent=num;
+  el.classList.add('show');
+  label.classList.add('show');
+  setTimeout(function(){
+    el.classList.remove('show');
+    label.classList.remove('show');
+  },1200);
+}
+
+function showACE(){
+  document.getElementById('aceMain').classList.add('show');
+  document.getElementById('aceSub').classList.add('show');
+  playACE();
+  // Show result after 2s
+  setTimeout(function(){
+    document.getElementById('result').classList.add('show');
+  },2500);
+}
+
+function addHitMarker(x,y){
+  var div=document.createElement('div');
+  div.className='hit-marker';
+  div.style.left=(x-15)+'px';
+  div.style.top=(y-15)+'px';
+  div.style.width='30px';
+  div.style.height='30px';
+  div.innerHTML='<svg width="30" height="30"><line x1="5" y1="5" x2="13" y2="13" stroke="#fff" stroke-width="2"/><line x1="25" y1="5" x2="17" y2="13" stroke="#fff" stroke-width="2"/><line x1="5" y1="25" x2="13" y2="17" stroke="#fff" stroke-width="2"/><line x1="25" y1="25" x2="17" y2="17" stroke="#fff" stroke-width="2"/></svg>';
+  document.body.appendChild(div);
+  setTimeout(function(){div.classList.add('show')},10);
+  setTimeout(function(){if(div.parentNode)div.parentNode.removeChild(div)},600);
+}
+
+function addBlood(x,y){
+  for(var i=0;i<8;i++){
+    var p={
+      x:x,y:y,
+      vx:(Math.random()-0.5)*4,
+      vy:(Math.random()-0.5)*4,
+      life:30+Math.random()*20,
+      maxLife:50,
+      size:2+Math.random()*3
+    };
+    particles.push(p);
+  }
+}
+
+function updateParticles(){
+  for(var i=particles.length-1;i>=0;i--){
+    var p=particles[i];
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.vy+=0.1;
+    p.life--;
+    if(p.life<=0)particles.splice(i,1);
+  }
+}
+
+function drawParticles(){
+  for(var i=0;i<particles.length;i++){
+    var p=particles[i];
+    ctx.globalAlpha=p.life/p.maxLife;
+    ctx.fillStyle='#ff0000';
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+// Move player towards target
+function movePlayer(idx,targetX,targetY,speed){
+  var p=players[idx];
+  var dx=targetX-p.x;
+  var dy=targetY-p.y;
+  var dist=Math.sqrt(dx*dx+dy*dy);
+  if(dist<speed){
+    p.x=targetX;p.y=targetY;
+    return true;
+  }
+  p.x+=dx/dist*speed;
+  p.y+=dy/dist*speed;
+  return false;
+}
+
+// Fire bullet
+function fireBullet(fromIdx,toIdx,color){
+  var from=players[fromIdx];
+  var to=players[toIdx];
+  var dx=to.x-from.x;
+  var dy=to.y-from.y;
+  var dist=Math.sqrt(dx*dx+dy*dy);
+  bullets.push({
+    x:from.x,y:from.y,
+    vx:dx/dist*15,
+    vy:dy/dist*15,
+    targetX:to.x,
+    targetY:to.y,
+    life:Math.ceil(dist/15),
+    color:color||'#ff0'
+  });
+}
+
+// ===== KILL SEQUENCE =====
+var killSequence=[
+  // Kill 1: Move and shoot
+  {t:500,action:function(){
+    var player=players[0];
+    var enemy=players[5]; // T_1
+    player.targetX=W*0.5;
+    player.targetY=H*0.5;
+    player.moving=true;
+    // Move player
+    var moveInterval=setInterval(function(){
+      var arrived=movePlayer(0,W*0.45,H*0.55,5);
+      if(arrived){
+        clearInterval(moveInterval);
+        // Shoot
+        playShot();
+        fireBullet(0,5,'#ff0');
+        setTimeout(function(){
+          enemy.alive=false;
+          enemy.deadTime=Date.now();
+          addHitMarker(enemy.x,enemy.y);
+          addBlood(enemy.x,enemy.y);
+          playKill();
+          playHeadshot();
+          killCount++;
+          addKillFeed(kills[0]);
+          showKillCounter(1);
+        },150);
+      }
+    },16);
+  }},
+  // Kill 2: Quick flick
+  {t:1500,action:function(){
+    var enemy=players[6]; // T_2
+    // Move enemy into view
+    enemy.x=W*0.6;
+    enemy.y=H*0.4;
+    playShot();
+    fireBullet(0,6,'#ff0');
+    setTimeout(function(){
+      enemy.alive=false;
+      enemy.deadTime=Date.now();
+      addHitMarker(enemy.x,enemy.y);
+      addBlood(enemy.x,enemy.y);
+      playKill();
+      killCount++;
+      addKillFeed(kills[1]);
+      showKillCounter(2);
+    },120);
+  }},
+  // Kill 3: Long range
+  {t:2800,action:function(){
+    var enemy=players[7]; // T_3
+    enemy.x=W*0.7;
+    enemy.y=H*0.25;
+    // Player moves
+    movePlayer(0,W*0.5,H*0.45,999);
+    playShot();
+    fireBullet(0,7,'#ff0');
+    setTimeout(function(){
+      enemy.alive=false;
+      enemy.deadTime=Date.now();
+      addHitMarker(enemy.x,enemy.y);
+      addBlood(enemy.x,enemy.y);
+      playKill();
+      playHeadshot();
+      killCount++;
+      addKillFeed(kills[2]);
+      showKillCounter(3);
+    },200);
+  }},
+  // Kill 4: Close range
+  {t:3800,action:function(){
+    var enemy=players[8]; // T_4
+    enemy.x=W*0.55;
+    enemy.y=H*0.5;
+    movePlayer(0,W*0.5,H*0.48,999);
+    playShot();
+    fireBullet(0,8,'#ff0');
+    setTimeout(function(){
+      enemy.alive=false;
+      enemy.deadTime=Date.now();
+      addHitMarker(enemy.x,enemy.y);
+      addBlood(enemy.x,enemy.y);
+      playKill();
+      killCount++;
+      addKillFeed(kills[3]);
+      showKillCounter(4);
+    },100);
+  }},
+  // Kill 5: ACE!
+  {t:5000,action:function(){
+    var enemy=players[9]; // T_5
+    enemy.x=W*0.65;
+    enemy.y=H*0.35;
+    movePlayer(0,W*0.55,H*0.4,999);
+    playShot();
+    fireBullet(0,9,'#ff0');
+    setTimeout(function(){
+      enemy.alive=false;
+      enemy.deadTime=Date.now();
+      addHitMarker(enemy.x,enemy.y);
+      addBlood(enemy.x,enemy.y);
+      playKill();
+      playHeadshot();
+      killCount++;
+      addKillFeed(kills[4]);
+      showKillCounter(5);
+      // ACE!
+      setTimeout(showACE,500);
+    },100);
+  }}
+];
+
+// Enemy movement AI
+function updateEnemies(){
+  for(var i=5;i<10;i++){
+    var p=players[i];
+    if(!p.alive)continue;
+    // Random movement
+    if(Math.random()<0.02){
+      p.targetX=p.x+(Math.random()-0.5)*100;
+      p.targetY=p.y+(Math.random()-0.5)*100;
+      p.targetX=Math.max(W*0.6,Math.min(W*0.9,p.targetX));
+      p.targetY=Math.max(H*0.05,Math.min(H*0.5,p.targetY));
+      p.moving=true;
+    }
+    if(p.moving){
+      movePlayer(i,p.targetX,p.targetY,1.5);
+      if(Math.abs(p.x-p.targetX)<2&&Math.abs(p.y-p.targetY)<2)p.moving=false;
+    }
+  }
+}
+
+// ===== MAIN LOOP =====
+function gameLoop(){
+  ctx.clearRect(0,0,W,H);
+  drawMap();
+  updateEnemies();
+  updateParticles();
+  drawBullets();
+  drawPlayers();
+  drawParticles();
+  
+  // Update bullets
+  for(var i=bullets.length-1;i>=0;i--){
+    var b=bullets[i];
+    b.x+=b.vx;
+    b.y+=b.vy;
+    b.life--;
+    if(b.life<=0)bullets.splice(i,1);
+  }
+  
+  requestAnimationFrame(gameLoop);
+}
+
+// ===== START =====
+function startGame(){
+  if(started)return;
+  started=true;
+  initAudio();
+  document.getElementById('tip').style.display='none';
+  
+  resize();
+  generateMap();
+  createPlayers();
+  
+  // Start kill sequence
+  for(var i=0;i<killSequence.length;i++){
+    (function(seq){
+      setTimeout(seq.action,seq.t);
+    })(killSequence[i]);
+  }
+  
+  gameLoop();
+}
+
+document.addEventListener('click',startGame);
+document.addEventListener('touchstart',function(e){e.preventDefault();startGame()});
+
+resize();
+generateMap();
+createPlayers();
+drawMap();
+drawPlayers();
+</script>
+</body>
+</html>
