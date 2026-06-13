@@ -178,6 +178,7 @@ function getDmgMult(){return 1+Math.min(accCounts.atk*0.20,2.0)}
 function getArmor(){return Math.min(accCounts.armor*5,50)}
 function getRangeMult(){return 1+Math.min(accCounts.range*0.15,1.0)}
 function getLifesteal(){return Math.min(accCounts.lifesteal*0.03,0.30)}
+function getCooldown(){var w=WEAPONS[weapon];return Math.round(w.cooldown*Math.pow(0.88,weaponLevel-1))}
 
 // ===== WAVE SYSTEM =====
 function nextWave(){
@@ -265,7 +266,7 @@ var attackTimer=0;
 function updateCombat(){
   var w=WEAPONS[weapon];
   attackTimer+=TICK;
-  if(attackTimer<w.cooldown){
+  if(attackTimer<getCooldown()){
     // Still on cooldown
   } else if(enemies.length>0){
     // Find nearest enemy
@@ -418,7 +419,7 @@ function renderShopItems(){
   var canUpg=coins>=upgCost&&weaponLevel<6;
   wh+='<div class="shop-item'+(canUpg?'':' disabled')+'" onclick="upgradeWeapon()">'
     +'<div class="si-info"><div class="si-name">'+WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel+(weaponLevel>=6?' (满级)':' → Lv.'+(weaponLevel+1))+'</div>'
-    +'<div class="si-desc">伤害 ×'+weaponLevel+(weaponLevel<6?' → ×'+(weaponLevel+1):'')+'</div></div>'
+    +'<div class="si-desc">伤害 ×'+weaponLevel+' · 攻速 '+getCooldown()+'ms'+(weaponLevel<6?' → '+Math.round(WEAPONS[weapon].cooldown*Math.pow(0.88,weaponLevel))+'ms':'')+'</div></div>'
     +'<div class="si-price">'+(weaponLevel>=6?'✅满级':'🪙 '+upgCost)+'</div></div>';
   document.getElementById('shopWeapons').innerHTML=wh;
 
@@ -553,7 +554,7 @@ function draw(){
 
   // Weapon indicator
   var w=WEAPONS[weapon];
-  if(attackTimer<w.cooldown*0.8){
+  if(attackTimer<getCooldown()*0.8){
     ctx.globalAlpha=0.5;
   }
   ctx.font='20px serif';
@@ -576,7 +577,7 @@ function draw(){
   ctx.globalAlpha=1;
 
   // Melee range indicator (subtle)
-  if(w.type==='melee' && attackTimer>=w.cooldown){
+  if(w.type==='melee' && attackTimer>=getCooldown()){
     ctx.strokeStyle='rgba(255,255,255,.08)';
     ctx.lineWidth=1;
     ctx.beginPath();ctx.arc(x,y,w.range*getRangeMult(),0,Math.PI*2);ctx.stroke();
