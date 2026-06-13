@@ -415,11 +415,11 @@ function renderShopItems(){
   // Weapons
   var wh='<h3>🗡️ 武器升级</h3>';
   var upgCost=weaponLevel*25;
-  var canUpg=coins>=upgCost;
+  var canUpg=coins>=upgCost&&weaponLevel<6;
   wh+='<div class="shop-item'+(canUpg?'':' disabled')+'" onclick="upgradeWeapon()">'
-    +'<div class="si-info"><div class="si-name">'+WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel+' → Lv.'+(weaponLevel+1)+'</div>'
-    +'<div class="si-desc">伤害 ×'+(weaponLevel+1)+'</div></div>'
-    +'<div class="si-price">🪙 '+upgCost+'</div></div>';
+    +'<div class="si-info"><div class="si-name">'+WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel+(weaponLevel>=6?' (满级)':' → Lv.'+(weaponLevel+1))+'</div>'
+    +'<div class="si-desc">伤害 ×'+weaponLevel+(weaponLevel<6?' → ×'+(weaponLevel+1):'')+'</div></div>'
+    +'<div class="si-price">'+(weaponLevel>=6?'✅满级':'🪙 '+upgCost)+'</div></div>';
   document.getElementById('shopWeapons').innerHTML=wh;
 
   // Accessories
@@ -441,7 +441,7 @@ function renderShopItems(){
 
 function upgradeWeapon(){
   var cost=weaponLevel*25;
-  if(coins>=cost){
+  if(coins>=cost&&weaponLevel<6){
     coins-=cost;
     weaponLevel++;
     document.getElementById('shopCoins').textContent=coins;
