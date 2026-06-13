@@ -789,7 +789,10 @@ updatePlayer=function(){
 // Touch anywhere on canvas to move
 cvs.addEventListener('touchstart',function(e){
   e.preventDefault();
+  // Ignore if touching joystick area
   var t=e.touches[0];
+  var jr=joyEl.getBoundingClientRect();
+  if(t.clientX>=jr.left && t.clientX<=jr.right && t.clientY>=jr.top && t.clientY<=jr.bottom) return;
   touchTargetX=t.clientX;touchTargetY=t.clientY;
   touchCanvasActive=true;
 },{passive:false});
@@ -805,6 +808,11 @@ cvs.addEventListener('touchend',function(e){
   touchCanvasActive=false;
 },{passive:false});
 var touchCanvasActive=false,touchTargetX=0,touchTargetY=0;
+
+// Prevent canvas touch from interfering with joystick
+joyEl.addEventListener('touchstart',function(e){e.stopPropagation()},{passive:false});
+joyEl.addEventListener('touchmove',function(e){e.stopPropagation()},{passive:false});
+joyEl.addEventListener('touchend',function(e){e.stopPropagation()},{passive:false});
 
 // ===== INIT DRAW =====
 draw();
