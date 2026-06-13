@@ -1,7 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238B7355'/%3E%3Cstop offset='.5' stop-color='%236B5B4A'/%3E%3Cstop offset='1' stop-color='%234A3C2E'/%3E%3C/linearGradient%3E%3ClinearGradient id='j' x1='0' y1='0' x2='.8' y2='1'%3E%3Cstop offset='0' stop-color='%232ECC71'/%3E%3Cstop offset='.4' stop-color='%2327AE60'/%3E%3Cstop offset='1' stop-color='%231E8449'/%3E%3C/linearGradient%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23FFD700'/%3E%3Cstop offset='1' stop-color='%23FFA500'/%3E%3C/linearGradient%3E%3Cfilter id='s'%3E%3CfeDropShadow dx='1' dy='2' stdDeviation='1.5' flood-opacity='.35'/%3E%3C/filter%3E%3C/defs%3E%3Cpath d='M10 28C8 20 16 8 30 6c10-1 18 4 24 10 4 5 6 12 4 18-3 8-10 14-18 16-10 3-20 0-26-8-2-3-4-10-4-14z' fill='url(%23a)' filter='url(%23s)'/%3E%3Cpath d='M22 12c4 6 2 14 6 20 3 5 8 8 12 12' stroke='%233A2E20' stroke-width='1.2' fill='none' opacity='.6'/%3E%3Cpath d='M32 14c6 2 12 8 14 14 1 4-1 8-4 10-4 3-9 2-12-1-3-4-4-10-2-16 1-3 3-6 4-7z' fill='url(%23j)' opacity='.85'/%3E%3Cpath d='M36 18c3 1 6 5 7 9' stroke='%23A9DFBF' stroke-width='1.5' fill='none' opacity='.5' stroke-linecap='round'/%3E%3Ccircle cx='18' cy='22' r='1.5' fill='url(%23g)' opacity='.7'/%3E%3Ccircle cx='40' cy='10' r='1' fill='url(%23g)' opacity='.6'/%3E%3Ccircle cx='14' cy='36' r='1.2' fill='url(%23g)' opacity='.5'/%3E%3Cpath d='M38 20l1-3 1 3 3 1-3 1-1 3-1-3-3-1z' fill='white' opacity='.7'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>翡翠赌石坊</title>
 <style>
@@ -301,7 +302,7 @@ function renderMarket(){
     var afford=G.money>=st.price;
     h+='<div class="card'+(afford?"":" btn-d")+'" style="cursor:'+(afford?"pointer":"not-allowed")+'" onclick="buyStone('+i+')">';
     h+='<span class="badge '+badge+">"+["普通","优良","稀有","史诗","传说"][st.tier]+'</span>';
-    h+='<div class="sp" style="background:'+ss.bg+';border:3px solid '+ss.bd+'"></div>';
+    var stoneImg=STONE_IMGS[st.origin];h+='<div class="sp" style="background:'+(stoneImg?'url('+stoneImg+') center/cover':ss.bd)+';border:3px solid '+ss.bd+'"></div>';
     h+='<div style="font-size:14px;font-weight:700">'+st.name+'</div>';
     // Show features based on skin skill
     if(G.skills.skin>0||st.feats.length>0){
@@ -378,7 +379,7 @@ function renderWorkshop(){
     var badge="b-c";if(st.tier===1)badge="b-u";if(st.tier===2)badge="b-r";if(st.tier===3)badge="b-e";if(st.tier>=4)badge="b-l";
     h+='<div class="card" style="cursor:pointer" onclick="openCut('+i+')">';
     h+='<span class="badge '+badge+">"+["普通","优良","稀有","史诗","传说"][st.tier]+'</span>';
-    h+='<div class="sp" style="background:'+ss.bg+';border:3px solid '+ss.bd+';width:50px;height:50px"></div>';
+    var stoneImg2=STONE_IMGS[st.origin];h+='<div class="sp" style="background:'+(stoneImg2?'url('+stoneImg2+') center/cover':ss.bd)+';border:3px solid '+ss.bd+';width:50px;height:50px"></div>';
     h+='<div style="font-size:13px;font-weight:700">'+st.name+'</div>';
     h+='<div style="color:var(--dim);font-size:11px">📍'+st.origin+' ⚖️'+st.weight+'kg</div>';
     var stages=["未加工","已擦窗","已深磨","已半切","已全切"];
@@ -677,7 +678,7 @@ function renderVault(){
       else h+='<button class="btn btn-r btn-s btn-blk" onclick="discardGem('+i+')">丢弃</button>'
     }else{
       var ss=SSTYLES[st.origin]||SSTYLES.莫西沙;
-      h+='<div class="sp" style="background:'+ss.bg+';border:3px solid '+ss.bd+';width:40px;height:40px"></div>';
+      var stoneImg3=STONE_IMGS[st.origin];h+='<div class="sp" style="background:'+(stoneImg3?'url('+stoneImg3+') center/cover':ss.bd)+';border:3px solid '+ss.bd+';width:40px;height:40px"></div>';
       h+='<div style="font-size:12px">'+st.name+'</div>';
       h+='<div style="color:var(--dim);font-size:10px">📍'+st.origin+'</div>';
       h+='<div style="color:var(--dim);font-size:10px">未切割</div>'
@@ -904,6 +905,7 @@ function switchTab(id){
 // ===== INIT =====
 load();
 initTabs();
+initStoneImgs();
 genMarketStones();
 renderMarket();
 updateHdr();
