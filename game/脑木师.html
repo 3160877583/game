@@ -174,41 +174,43 @@ function sndStaff(){
   n.start(t);n.stop(t+0.12);
 }
 
-// 🪓 浮木：沉重木头 + 共振
+// 🪓 浮木：斧头挥砍
 function sndWood(){
   if(!audioCtx)return;
   var t=audioCtx.currentTime;
-  // Heavy thud
+  // Swoosh
+  var n=createNoise(0.15);
+  var ng=audioCtx.createGain();
+  var nf=audioCtx.createBiquadFilter();
+  nf.type='bandpass';
+  nf.frequency.setValueAtTime(4000,t);
+  nf.frequency.exponentialRampToValueAtTime(800,t+0.15);
+  nf.Q.setValueAtTime(3,t);
+  ng.gain.setValueAtTime(0.01,t);
+  ng.gain.linearRampToValueAtTime(0.3,t+0.04);
+  ng.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
+  n.start(t);n.stop(t+0.15);
+  // Impact
   var o1=audioCtx.createOscillator();
   var g1=audioCtx.createGain();
   o1.type='sine';
-  o1.frequency.setValueAtTime(100,t);
-  o1.frequency.exponentialRampToValueAtTime(30,t+0.15);
-  g1.gain.setValueAtTime(0.5,t);
-  g1.gain.exponentialRampToValueAtTime(0.001,t+0.2);
+  o1.frequency.setValueAtTime(200,t+0.04);
+  o1.frequency.exponentialRampToValueAtTime(60,t+0.12);
+  g1.gain.setValueAtTime(0.4,t+0.04);
+  g1.gain.exponentialRampToValueAtTime(0.001,t+0.15);
   o1.connect(g1);g1.connect(audioCtx.destination);
-  o1.start(t);o1.stop(t+0.2);
-  // Wooden crack
-  var n=createNoise(0.08);
-  var ng=audioCtx.createGain();
-  var nf=audioCtx.createBiquadFilter();
-  nf.type='lowpass';
-  nf.frequency.setValueAtTime(1500,t);
-  nf.frequency.exponentialRampToValueAtTime(300,t+0.08);
-  ng.gain.setValueAtTime(0.35,t);
-  ng.gain.exponentialRampToValueAtTime(0.001,t+0.08);
-  n.connect(nf);nf.connect(ng);ng.connect(audioCtx.destination);
-  n.start(t);n.stop(t+0.08);
-  // Wood resonance
+  o1.start(t+0.04);o1.stop(t+0.15);
+  // Sharp crack
   var o2=audioCtx.createOscillator();
   var g2=audioCtx.createGain();
-  o2.type='triangle';
-  o2.frequency.setValueAtTime(180,t);
-  o2.frequency.exponentialRampToValueAtTime(80,t+0.12);
-  g2.gain.setValueAtTime(0.15,t);
-  g2.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+  o2.type='sawtooth';
+  o2.frequency.setValueAtTime(300,t+0.04);
+  o2.frequency.exponentialRampToValueAtTime(100,t+0.08);
+  g2.gain.setValueAtTime(0.15,t+0.04);
+  g2.gain.exponentialRampToValueAtTime(0.001,t+0.1);
   o2.connect(g2);g2.connect(audioCtx.destination);
-  o2.start(t);o2.stop(t+0.15);
+  o2.start(t+0.04);o2.stop(t+0.1);
 }
 
 // 命中
