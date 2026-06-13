@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>奶龙跑酷</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Segoe UI',sans-serif;touch-action:none}
+canvas{display:block}
+#ui{position:absolute;top:0;left:0;width:100%;pointer-events:none}
+#hud{position:absolute;top:20px;left:20px;color:#fff;font-size:18px;text-shadow:0 0 10px rgba(255,200,0,0.8)}
+#hud div{margin:5px 0}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:auto}
+#startScreen{background:rgba(0,0,0,0.85)}
+#gameOverScreen{background:rgba(0,0,0,0.85);display:none}
+h1{font-size:56px;color:#ffcc00;text-shadow:0 0 30px #ff8800,0 0 60px #ff6600;margin-bottom:10px;letter-spacing:8px}
+h2{font-size:42px;color:#ff6600;text-shadow:0 0 20px #ff4400;margin-bottom:20px}
+.info{color:#aaa;font-size:16px;margin:8px 0;text-align:center}
+.key{color:#ffcc00;text-shadow:0 0 8px #ffcc00}
+.btn{margin-top:25px;padding:16px 50px;font-size:22px;border:2px solid #ffcc00;background:transparent;color:#ffcc00;cursor:pointer;letter-spacing:4px;transition:all 0.3s;pointer-events:auto}
+.btn:hover{background:#ffcc00;color:#000;box-shadow:0 0 30px #ffcc00}
+#mobileControls{position:absolute;bottom:0;left:0;width:100%;height:200px;pointer-events:none;display:none}
+.touchZone{position:absolute;pointer-events:auto;opacity:0}
+#leftZone{left:0;top:0;width:33%;height:100%}
+#centerZone{left:33%;top:0;width:34%;height:100%}
+#rightZone{right:0;top:0;width:33%;height:100%}
+#jumpZone{left:0;top:0;width:100%;height:50%}
+#slideZone{left:0;bottom:0;width:100%;height:50%}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div>得分: <span id="score">0</span></div>
+    <div>金币: <span id="coins">0</span></div>
+    <div>距离: <span id="distance">0</span>m</div>
+  </div>
+</div>
+
+<div id="startScreen" class="screen">
+  <h1>🐉 奶龙跑酷</h1>
+  <p class="info">操控奶龙在地铁轨道上奔跑！</p>
+  <p class="info"><span class="key">← →</span> 切换跑道 &nbsp; <span class="key">↑</span> 跳跃 &nbsp; <span class="key">↓</span> 滑铲</p>
+  <p class="info">手机：左右滑动切换跑道 &nbsp; 上滑跳跃 &nbsp; 下滑滑铲</p>
+  <button class="btn" onclick="startGame()" id="startBtn">开 始 游 戏</button>
+  <p class="info" style="margin-top:15px;color:#888">或按 <span class="key">空格</span> 开始</p>
+</div>
+
+<div id="gameOverScreen" class="screen">
+  <h2>游 戏 结 束</h2>
+  <div id="finalScore" style="color:#ffcc00;font-size:28px;margin:10px 0">得分: 0</div>
+  <div id="finalCoins" style="color:#ffa500;font-size:22px;margin:10px 0">金币: 0</div>
+  <div id="finalDistance" style="color:#aaa;font-size:18px;margin:10px 0">距离: 0m</div>
+  <button class="btn" onclick="startGame()">再 来 一 次</button>
+</div>
+
+<div id="mobileControls">
+  <div id="leftZone" class="touchZone" ontouchstart="moveLeft()"></div>
+  <div id="centerZone" class="touchZone">
+    <div id="jumpZone" ontouchstart="jump()"></div>
+    <div id="slideZone" ontouchstart="slide()"></div>
+  </div>
+  <div id="rightZone" class="touchZone" ontouchstart="moveRight()"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script>
+// Check if Three.js loaded
+if (typeof THREE === 'undefined') {
+  document.body.innerHTML = '<div style="color:#fff;text-align:center;padding:50px"><h1>加载失败</h1><p>请刷新页面重试</p><p>错误: Three.js 未加载</p></div>';
+  throw new Error('Three.js failed to load');
+}
+
+// Test if Three.js works
+try {
+  const testScene = new THREE.Scene();
+  const testCamera = new THREE.PerspectiveCamera();
+  const testRenderer = new THREE.WebGLRenderer();
+} catch (e) {
+  document.body.innerHTML = '<div style="color:#fff;text-align:center;padding:50px"><h1>WebGL 不支持</h1><p>请使用支持 WebGL 的浏览器</p><p>错误: ' + e.message + '</p></div>';
+  throw e;
+}
+// === GAME VARIABLES ===
+let canvas, renderer, scene, camera;
+try {
+  canvas = document.getElementById('game');
+  renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1a2e);
+  scene.fog = new THREE.Fog(0x1a1a2e, 50, 200);
+  
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 8, 15);
+  camera.lookAt(0, 2, 0);
+} catch (e) {
+  document.body.innerHTML = '<div style="color:#fff;text-align:center;padding:50px"><h1>游戏初始化失败</h1><p>请刷新页面重试</p><p>错误: ' + e.message + '</p></div>';
+  throw e;
+}
+
+// === LIGHTING ===
+const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(10, 20, 10);
+directionalLight.castShadow = true;
+directionalLight.shadow.mapSize.width = 2048;
+directionalLight.shadow.mapSize.height = 2048;
+scene.add(directionalLight);
+
+const pointLight = new THREE.PointLight(0xff8800, 1, 50);
+pointLight.position.set(0, 10, 0);
+scene.add(pointLight);
+
+// === GAME STATE ===
+let gameState = 'start';
+let score = 0;
+let coins = 0;
+let distance = 0;
+let speed = 0.3;
+let currentLane = 0; // -1, 0, 1
+let isJumping = false;
+let isSliding = false;
+let jumpVelocity = 0;
+let playerY = 0;
+let obstacles = [];
+let coinObjects = [];
+let buildings = [];
+let trainCars = [];
+
+// === PLAYER (奶龙) ===
+function createPlayer() {
+  const group = new THREE.Group();
+  
+  // Body (round, chubby)
+  const bodyGeom = new THREE.SphereGeometry(1.2, 16, 16);
+  const bodyMat = new THREE.MeshPhongMaterial({color: 0xffcc00, shininess: 80});
+  const body = new THREE.Mesh(bodyGeom, bodyMat);
+  body.scale.set(1, 0.9, 0.8);
+  body.position.y = 1.5;
+  body.castShadow = true;
+  group.add(body);
+  
+  // Belly (lighter)
+  const bellyGeom = new THREE.SphereGeometry(0.9, 16, 16);
+  const bellyMat = new THREE.MeshPhongMaterial({color: 0xffee88, shininess: 60});
+  const belly = new THREE.Mesh(bellyGeom, bellyMat);
+  belly.position.set(0, 1.3, 0.4);
+  group.add(belly);
+  
+  // Head
+  const headGeom = new THREE.SphereGeometry(1, 16, 16);
+  const headMat = new THREE.MeshPhongMaterial({color: 0xffcc00, shininess: 80});
+  const head = new THREE.Mesh(headGeom, headMat);
+  head.position.set(0, 3, 0.2);
+  head.castShadow = true;
+  group.add(head);
+  
+  // Eyes
+  const eyeGeom = new THREE.SphereGeometry(0.25, 8, 8);
+  const eyeMat = new THREE.MeshPhongMaterial({color: 0x000000});
+  const eyeWhiteGeom = new THREE.SphereGeometry(0.3, 8, 8);
+  const eyeWhiteMat = new THREE.MeshPhongMaterial({color: 0xffffff});
+  
+  // Left eye
+  const leftEyeWhite = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
+  leftEyeWhite.position.set(-0.35, 3.2, 0.9);
+  group.add(leftEyeWhite);
+  const leftEye = new THREE.Mesh(eyeGeom, eyeMat);
+  leftEye.position.set(-0.35, 3.2, 1.1);
+  group.add(leftEye);
+  
+  // Right eye
+  const rightEyeWhite = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
+  rightEyeWhite.position.set(0.35, 3.2, 0.9);
+  group.add(rightEyeWhite);
+  const rightEye = new THREE.Mesh(eyeGeom, eyeMat);
+  rightEye.position.set(0.35, 3.2, 1.1);
+  group.add(rightEye);
+  
+  // Eye highlights
+  const highlightGeom = new THREE.SphereGeometry(0.08, 8, 8);
+  const highlightMat = new THREE.MeshPhongMaterial({color: 0xffffff, emissive: 0xffffff});
+  const leftHighlight = new THREE.Mesh(highlightGeom, highlightMat);
+  leftHighlight.position.set(-0.25, 3.3, 1.2);
+  group.add(leftHighlight);
+  const rightHighlight = new THREE.Mesh(highlightGeom, highlightMat);
+  rightHighlight.position.set(0.45, 3.3, 1.2);
+  group.add(rightHighlight);
+  
+  // Mouth (smiling)
+  const mouthGeom = new THREE.TorusGeometry(0.3, 0.05, 8, 16, Math.PI);
+  const mouthMat = new THREE.MeshPhongMaterial({color: 0x8B4513});
+  const mouth = new THREE.Mesh(mouthGeom, mouthMat);
+  mouth.position.set(0, 2.7, 0.9);
+  mouth.rotation.x = Math.PI;
+  group.add(mouth);
+  
+  // Horns
+  const hornGeom = new THREE.ConeGeometry(0.15, 0.5, 8);
+  const hornMat = new THREE.MeshPhongMaterial({color: 0xff8800, shininess: 100});
+  
+  const leftHorn = new THREE.Mesh(hornGeom, hornMat);
+  leftHorn.position.set(-0.5, 4, 0);
+  leftHorn.rotation.z = 0.3;
+  group.add(leftHorn);
+  
+  const rightHorn = new THREE.Mesh(hornGeom, hornMat);
+  rightHorn.position.set(0.5, 4, 0);
+  rightHorn.rotation.z = -0.3;
+  group.add(rightHorn);
+  
+  // Arms
+  const armGeom = new THREE.CapsuleGeometry(0.2, 0.6, 8, 8);
+  const armMat = new THREE.MeshPhongMaterial({color: 0xffcc00});
+  
+  const leftArm = new THREE.Mesh(armGeom, armMat);
+  leftArm.position.set(-1.3, 1.8, 0);
+  leftArm.rotation.z = 0.5;
+  leftArm.name = 'leftArm';
+  group.add(leftArm);
+  
+  const rightArm = new THREE.Mesh(armGeom, armMat);
+  rightArm.position.set(1.3, 1.8, 0);
+  rightArm.rotation.z = -0.5;
+  rightArm.name = 'rightArm';
+  group.add(rightArm);
+  
+  // Legs
+  const legGeom = new THREE.CapsuleGeometry(0.25, 0.5, 8, 8);
+  const legMat = new THREE.MeshPhongMaterial({color: 0xffcc00});
+  
+  const leftLeg = new THREE.Mesh(legGeom, legMat);
+  leftLeg.position.set(-0.5, 0.3, 0);
+  leftLeg.name = 'leftLeg';
+  group.add(leftLeg);
+  
+  const rightLeg = new THREE.Mesh(legGeom, legMat);
+  rightLeg.position.set(0.5, 0.3, 0);
+  rightLeg.name = 'rightLeg';
+  group.add(rightLeg);
+  
+  // Tail
+  const tailGeom = new THREE.SphereGeometry(0.3, 8, 8);
+  const tailMat = new THREE.MeshPhongMaterial({color: 0xff8800});
+  const tail = new THREE.Mesh(tailGeom, tailMat);
+  tail.position.set(0, 1.5, -1);
+  tail.name = 'tail';
+  group.add(tail);
+  
+  return group;
+}
+
+const player = createPlayer();
+scene.add(player);
+
+// === ENVIRONMENT ===
+function createGround() {
+  // Tracks
+  for (let i = -1; i <= 1; i++) {
+    const trackGeom = new THREE.BoxGeometry(3, 0.1, 200);
+    const trackMat = new THREE.MeshPhongMaterial({color: 0x333333});
+    const track = new THREE.Mesh(trackGeom, trackMat);
+    track.position.set(i * 4, -0.05, -50);
+    track.receiveShadow = true;
+    scene.add(track);
+    
+    // Rails
+    for (let z = -100; z < 100; z += 2) {
+      const railGeom = new THREE.BoxGeometry(2.5, 0.15, 0.3);
+      const railMat = new THREE.MeshPhongMaterial({color: 0x8B7355});
+      const rail = new THREE.Mesh(railGeom, railMat);
+      rail.position.set(i * 4, 0.05, z);
+      scene.add(rail);
+    }
+  }
+  
+  // Ground
+  const groundGeom = new THREE.PlaneGeometry(20, 200);
+  const groundMat = new THREE.MeshPhongMaterial({color: 0x2a2a2a});
+  const ground = new THREE.Mesh(groundGeom, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.1;
+  ground.position.z = -50;
+  ground.receiveShadow = true;
+  scene.add(ground);
+}
+
+function createBuildings() {
+  const colors = [0x334455, 0x445566, 0x556677, 0x667788];
+  
+  for (let i = 0; i < 40; i++) {
+    const height = 10 + Math.random() * 30;
+    const width = 3 + Math.random() * 5;
+    const depth = 3 + Math.random() * 5;
+    
+    const buildingGeom = new THREE.BoxGeometry(width, height, depth);
+    const buildingMat = new THREE.MeshPhongMaterial({
+      color: colors[Math.floor(Math.random() * colors.length)],
+      shininess: 30
+    });
+    const building = new THREE.Mesh(buildingGeom, buildingMat);
+    
+    const side = Math.random() > 0.5 ? 1 : -1;
+    building.position.set(
+      side * (8 + Math.random() * 10),
+      height / 2,
+      -i * 10 + Math.random() * 5
+    );
+    building.castShadow = true;
+    building.receiveShadow = true;
+    scene.add(building);
+    buildings.push(building);
+    
+    // Windows
+    const windowRows = Math.floor(height / 3);
+    const windowCols = Math.floor(width / 1.5);
+    for (let row = 0; row < windowRows; row++) {
+      for (let col = 0; col < windowCols; col++) {
+        if (Math.random() > 0.3) {
+          const windowGeom = new THREE.PlaneGeometry(0.8, 1.2);
+          const windowMat = new THREE.MeshPhongMaterial({
+            color: Math.random() > 0.5 ? 0xffff88 : 0x88ccff,
+            emissive: Math.random() > 0.5 ? 0xffff44 : 0x4488ff,
+            emissiveIntensity: 0.5
+          });
+          const windowMesh = new THREE.Mesh(windowGeom, windowMat);
+          windowMesh.position.set(
+            building.position.x + (col - windowCols/2) * 1.5,
+            row * 3 + 2,
+            building.position.z + depth/2 + 0.01
+          );
+          scene.add(windowMesh);
+        }
+      }
+    }
+  }
+}
+
+// === OBSTACLES ===
+function createObstacle(type, lane) {
+  const group = new THREE.Group();
+  
+  if (type === 'train') {
+    // Train car
+    const carGeom = new THREE.BoxGeometry(2.5, 3, 6);
+    const carMat = new THREE.MeshPhongMaterial({color: 0xcc0000, shininess: 60});
+    const car = new THREE.Mesh(carGeom, carMat);
+    car.position.y = 1.5;
+    car.castShadow = true;
+    group.add(car);
+    
+    // Windows
+    for (let i = -2; i <= 2; i++) {
+      const windowGeom = new THREE.PlaneGeometry(0.8, 1);
+      const windowMat = new THREE.MeshPhongMaterial({color: 0x88ccff, emissive: 0x4488ff, emissiveIntensity: 0.3});
+      const windowMesh = new THREE.Mesh(windowGeom, windowMat);
+      windowMesh.position.set(0, 2, i * 1.2);
+      group.add(windowMesh);
+    }
+    
+    // Stripe
+    const stripeGeom = new THREE.BoxGeometry(2.6, 0.3, 6.1);
+    const stripeMat = new THREE.MeshPhongMaterial({color: 0xffcc00});
+    const stripe = new THREE.Mesh(stripeGeom, stripeMat);
+    stripe.position.y = 1.5;
+    group.add(stripe);
+  } else if (type === 'barrier') {
+    // Barrier
+    const barrierGeom = new THREE.BoxGeometry(2.5, 1.5, 0.5);
+    const barrierMat = new THREE.MeshPhongMaterial({color: 0xff6600});
+    const barrier = new THREE.Mesh(barrierGeom, barrierMat);
+    barrier.position.y = 0.75;
+    barrier.castShadow = true;
+    group.add(barrier);
+    
+    // Stripes
+    for (let i = -1; i <= 1; i += 2) {
+      const stripeGeom = new THREE.BoxGeometry(0.3, 1.5, 0.51);
+      const stripeMat = new THREE.MeshPhongMaterial({color: 0xffffff});
+      const stripe = new THREE.Mesh(stripeGeom, stripeMat);
+      stripe.position.set(i * 0.5, 0.75, 0);
+      group.add(stripe);
+    }
+  } else if (type === 'sign') {
+    // Warning sign
+    const poleGeom = new THREE.CylinderGeometry(0.1, 0.1, 3, 8);
+    const poleMat = new THREE.MeshPhongMaterial({color: 0x888888});
+    const pole = new THREE.Mesh(poleGeom, poleMat);
+    pole.position.y = 1.5;
+    group.add(pole);
+    
+    const signGeom = new THREE.CircleGeometry(0.8, 32);
+    const signMat = new THREE.MeshPhongMaterial({color: 0xff0000, side: THREE.DoubleSide});
+    const sign = new THREE.Mesh(signGeom, signMat);
+    sign.position.y = 3.5;
+    group.add(sign);
+    
+    const exclamationGeom = new THREE.BoxGeometry(0.15, 0.8, 0.01);
+    const exclamationMat = new THREE.MeshPhongMaterial({color: 0xffffff});
+    const exclamation = new THREE.Mesh(exclamationGeom, exclamationMat);
+    exclamation.position.y = 3.7;
+    group.add(exclamation);
+    
+    const dotGeom = new THREE.SphereGeometry(0.1, 8, 8);
+    const dot = new THREE.Mesh(dotGeom, exclamationMat);
+    dot.position.y = 2.9;
+    group.add(dot);
+  }
+  
+  group.position.set(lane * 4, 0, -100);
+  group.userData = {type, lane};
+  scene.add(group);
+  obstacles.push(group);
+  
+  return group;
+}
+
+// === COINS ===
+function createCoin(lane, z) {
+  const coinGeom = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+  const coinMat = new THREE.MeshPhongMaterial({color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.5, shininess: 100});
+  const coin = new THREE.Mesh(coinGeom, coinMat);
+  coin.rotation.x = Math.PI / 2;
+  coin.position.set(lane * 4, 1.5, z);
+  coin.castShadow = true;
+  scene.add(coin);
+  coinObjects.push(coin);
+  
+  // Glow
+  const glowGeom = new THREE.SphereGeometry(0.6, 8, 8);
+  const glowMat = new THREE.MeshBasicMaterial({color: 0xffd700, transparent: true, opacity: 0.3});
+  const glow = new THREE.Mesh(glowGeom, glowMat);
+  coin.add(glow);
+  
+  return coin;
+}
+
+// === TRAIN CARS (background) ===
+function createTrainCar(z) {
+  const colors = [0x2255aa, 0x22aa55, 0xaa5522, 0x5522aa];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  
+  const carGeom = new THREE.BoxGeometry(3, 3.5, 12);
+  const carMat = new THREE.MeshPhongMaterial({color, shininess: 60});
+  const car = new THREE.Mesh(carGeom, carMat);
+  car.position.set(15 + Math.random() * 5, 1.75, z);
+  car.castShadow = true;
+  scene.add(car);
+  trainCars.push(car);
+  
+  // Windows
+  for (let i = -4; i <= 4; i++) {
+    const windowGeom = new THREE.PlaneGeometry(1, 1.5);
+    const windowMat = new THREE.MeshPhongMaterial({color: 0x88ccff, emissive: 0x4488ff, emissiveIntensity: 0.2});
+    const windowMesh = new THREE.Mesh(windowGeom, windowMat);
+    windowMesh.position.set(0, 2, i * 1.3);
+    car.add(windowMesh);
+  }
+}
+
+// === GAME FUNCTIONS ===
+window.startGame = function() {
+  if (gameState === 'start' || gameState === 'over') {
+    gameState = 'playing';
+    score = 0;
+    coins = 0;
+    distance = 0;
+    speed = 0.3;
+    currentLane = 0;
+    isJumping = false;
+    isSliding = false;
+    jumpVelocity = 0;
+    playerY = 0;
+    
+    // Clear obstacles and coins
+    obstacles.forEach(o => scene.remove(o));
+    obstacles = [];
+    coinObjects.forEach(c => scene.remove(c));
+    coinObjects = [];
+    
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('gameOverScreen').style.display = 'none';
+    document.getElementById('mobileControls').style.display = 'block';
+    
+    player.position.set(0, 0, 0);
+    player.scale.set(1, 1, 1);
+    gracePeriod = 180; // Reset grace period (3 seconds)
+  }
+}
+
+window.gameOver = function() {
+  gameState = 'over';
+  document.getElementById('gameOverScreen').style.display = 'flex';
+  document.getElementById('finalScore').textContent = '得分: ' + score;
+  document.getElementById('finalCoins').textContent = '金币: ' + coins;
+  document.getElementById('finalDistance').textContent = '距离: ' + Math.floor(distance) + 'm';
+  document.getElementById('mobileControls').style.display = 'none';
+}
+
+window.moveLeft = function() {
+  if (currentLane > -1) {
+    currentLane--;
+    player.position.x = currentLane * 4;
+  }
+}
+
+window.moveRight = function() {
+  if (currentLane < 1) {
+    currentLane++;
+    player.position.x = currentLane * 4;
+  }
+}
+
+window.jump = function() {
+  if (!isJumping && !isSliding) {
+    isJumping = true;
+    jumpVelocity = 0.45; // Even higher jump
+  }
+}
+
+window.slide = function() {
+  if (!isJumping && !isSliding) {
+    isSliding = true;
+    player.scale.y = 0.5;
+    setTimeout(() => {
+      isSliding = false;
+      player.scale.y = 1;
+    }, 800);
+  }
+}
+
+// === CONTROLS ===
+document.addEventListener('keydown', (e) => {
+  // Start game with spacebar
+  if (gameState === 'start' || gameState === 'over') {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      startGame();
+      return;
+    }
+  }
+  
+  if (gameState !== 'playing') return;
+  
+  if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
+  if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
+  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') jump();
+  if (e.key === 'ArrowDown' || e.key === 's') slide();
+});
+
+// Touch controls
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+});
+
+document.addEventListener('touchend', (e) => {
+  if (gameState !== 'playing') return;
+  
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 50) moveRight();
+    else if (dx < -50) moveLeft();
+  } else {
+    if (dy < -50) jump();
+    else if (dy > 50) slide();
+  }
+});
+
+// === WINDOW RESIZE ===
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// === ANIMATION LOOP ===
+let frameCount = 0;
+let lastTime = 0;
+let gracePeriod = 180; // 3 seconds grace period at start
+
+function animate(time) {
+  requestAnimationFrame(animate);
+  
+  const delta = time - lastTime;
+  lastTime = time;
+  
+  if (gameState === 'playing') {
+    frameCount++;
+    if (gracePeriod > 0) gracePeriod--;
+    
+    // Update speed (slower)
+    speed = 0.2 + distance * 0.00005;
+    
+    // Move obstacles and coins
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+      const obs = obstacles[i];
+      obs.position.z += speed;
+      
+      // Collision detection (only after grace period, more forgiving)
+      if (gracePeriod <= 0 && Math.abs(obs.position.z - player.position.z) < 2) {
+        if (obs.userData.lane === currentLane) {
+          if (!isJumping && !isSliding) {
+            gameOver();
+            return;
+          } else if (isJumping && playerY > 1.5) {
+            // Jump over obstacles (must be high enough)
+          } else if (isSliding && obs.userData.type !== 'sign') {
+            // Slide under trains and barriers
+          } else {
+            // Hit obstacle while jumping too low or sliding wrong type
+            gameOver();
+            return;
+          }
+        }
+      }
+      
+      // Remove passed obstacles
+      if (obs.position.z > 20) {
+        scene.remove(obs);
+        obstacles.splice(i, 1);
+        score += 10;
+      }
+    }
+    
+    // Update coins
+    for (let i = coinObjects.length - 1; i >= 0; i--) {
+      const coin = coinObjects[i];
+      coin.position.z += speed;
+      coin.rotation.y += 0.05;
+      
+      // Collect coins
+      if (Math.abs(coin.position.z - player.position.z) < 1.5 && 
+          Math.abs(coin.position.x - player.position.x) < 2) {
+        scene.remove(coin);
+        coinObjects.splice(i, 1);
+        coins++;
+        score += 5;
+      }
+      
+      // Remove passed coins
+      if (coin.position.z > 20) {
+        scene.remove(coin);
+        coinObjects.splice(i, 1);
+      }
+    }
+    
+    // Spawn obstacles (much less frequent)
+    if (frameCount % Math.max(90, 150 - Math.floor(distance * 0.1)) === 0) {
+      const lane = Math.floor(Math.random() * 3) - 1;
+      const types = ['train', 'barrier', 'sign'];
+      const type = types[Math.floor(Math.random() * types.length)];
+      createObstacle(type, lane);
+    }
+    
+    // Spawn coins (more frequent)
+    if (frameCount % 10 === 0) {
+      const lane = Math.floor(Math.random() * 3) - 1;
+      createCoin(lane, -100);
+    }
+    
+    // Update distance
+    distance += speed * 2;
+    
+    // Player animation
+    if (isJumping) {
+      playerY += jumpVelocity;
+      jumpVelocity -= 0.015;
+      if (playerY <= 0) {
+        playerY = 0;
+        isJumping = false;
+        jumpVelocity = 0;
+      }
+    }
+    player.position.y = playerY;
+    
+    // Running animation
+    const runCycle = Math.sin(frameCount * 0.2) * 0.3;
+    player.children.forEach(child => {
+      if (child.name === 'leftArm') child.rotation.x = runCycle;
+      if (child.name === 'rightArm') child.rotation.x = -runCycle;
+      if (child.name === 'leftLeg') child.rotation.x = -runCycle;
+      if (child.name === 'rightLeg') child.rotation.x = runCycle;
+      if (child.name === 'tail') child.rotation.y = Math.sin(frameCount * 0.1) * 0.5;
+    });
+    
+    // Camera follow
+    camera.position.x = player.position.x * 0.3;
+    camera.position.y = 8 + playerY * 0.5;
+    camera.lookAt(player.position.x * 0.5, 2 + playerY, -10);
+    
+    // Grace period visual indicator
+    if (gracePeriod > 0) {
+      player.traverse(child => {
+        if (child.isMesh) {
+          child.material.transparent = true;
+          child.material.opacity = 0.5 + Math.sin(frameCount * 0.3) * 0.3;
+        }
+      });
+    } else {
+      player.traverse(child => {
+        if (child.isMesh) {
+          child.material.transparent = false;
+          child.material.opacity = 1;
+        }
+      });
+    }
+    
+    // Update HUD
+    document.getElementById('score').textContent = score;
+    document.getElementById('coins').textContent = coins;
+    document.getElementById('distance').textContent = Math.floor(distance);
+    
+    // Move background buildings
+    buildings.forEach(b => {
+      b.position.z += speed * 0.8;
+      if (b.position.z > 30) b.position.z -= 200;
+    });
+    
+    // Move train cars
+    trainCars.forEach(car => {
+      car.position.z += speed * 1.2;
+      if (car.position.z > 30) car.position.z -= 200;
+    });
+  }
+  
+  renderer.render(scene, camera);
+}
+
+// === INIT ===
+createGround();
+createBuildings();
+
+// Create initial train cars
+for (let i = 0; i < 5; i++) {
+  createTrainCar(-i * 30 - 20);
+}
+
+animate(0);
+</script>
+</body>
+</html>

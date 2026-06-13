@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>超市大作战 v1.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#2d5016;font-family:'Segoe UI',sans-serif}
+C{display:block;margin:0 auto}
+#hud{position:fixed;top:10px;left:10px;color:#fff;font-size:16px;text-shadow:0 0 5px rgba(0,0,0,0.8);z-index:10}
+#hud div{margin-bottom:5px}
+#startScreen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20}
+#startScreen h1{font-size:42px;color:#ffcc00;text-shadow:0 0 20px #ff6600;margin-bottom:15px}
+#startScreen p{color:#aaa;font-size:15px;margin-bottom:25px;text-align:center;line-height:1.6}
+#startScreen button{padding:15px 40px;font-size:20px;background:#ff6600;color:#fff;border:none;border-radius:10px;cursor:pointer}
+#gameOver{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:20}
+#gameOver h1{font-size:36px;color:#ff4444;margin-bottom:15px}
+#gameOver p{color:#fff;font-size:18px;margin-bottom:10px}
+#gameOver button{padding:15px 40px;font-size:20px;background:#ff6600;color:#fff;border:none;border-radius:10px;cursor:pointer;margin-top:15px}
+</style>
+</head>
+<body>
+<div id="startScreen">
+  <h1>🛒 超市大作战</h1>
+  <p>控制购物车疯狂捡商品<br>躲避收银员追捕！<br>商品越贵分数越高<br>被抓到就结账（游戏结束）<br><br>方向键/触屏移动</p>
+  <button onclick="startGame()">开始扫货！</button>
+</div>
+<div id="gameOver">
+  <h1>🛒 被收银员抓住了！</h1>
+  <p>🛒 购物清单：<span id="finalItems">0</span>件</p>
+  <p>💰 总价值：<span id="finalScore">0</span>分</p>
+  <p>🏃 逃跑距离：<span id="finalDist">0</span>米</p>
+  <button onclick="location.reload()">再逛一次！</button>
+</div>
+<div id="hud">
+  <div>🛒 商品：<span id="items">0</span>件</div>
+  <div>💰 价值：<span id="score">0</span>分</div>
+  <div>🏃 距离：<span id="dist">0</span>米</div>
+  <div>⚡ 速度：<span id="speed">1</span></div>
+</div>
+<canvas id="C"></canvas>
+<script>
+const C=document.getElementById('C'),X=C.getContext('2d');
+let W,H,gameState='start',score=0,items=0,distance=0,speed=1;
+let cart={x:0,y:0,w:50,h:40,vx:0,vy:0,spd:4};
+let products=[],cashiers=[],particles=[],obstacles=[];
+let frameCount=0,spawnTimer=0,cashierTimer=0;
+let keys={},touching=false,touchX=0,touchY=0;
+let shelfRows=[],shelfTimer=0;
+
+// Product types
+const PRODUCTS=[
+  {name:'苹果',icon:'🍎',score:10,color:'#ff4444'},
+  {name:'香蕉',icon:'🍌',score:15,color:'#ffcc00'},
+  {name:'牛奶',icon:'🥛',score:20,color:'#ffffff'},
+  {name:'面包',icon:'🍞',score:25,color:'#cc8800'},
+  {name:'饮料',icon:'🥤',score:30,color:'#4488ff'},
+  {name:'薯片',icon:'🥔',score:35,color:'#ff8800'},
+  {name:'蛋糕',icon:'🎂',score:50,color:'#ff66aa'},
+  {name:'龙虾',icon:'🦞',score:100,color:'#ff2200'},
+  {name:'茅台',icon:'🍺',score:200,color:'#880000'},
+  {name:'iPhone',icon:'📱',score:500,color:'#333333'}
+];
+
+function resize(){
+  W=C.width=window.innerWidth;
+  H=C.height=window.innerHeight;
+  cart.x=W/2;cart.y=H-80;
+}
+window.addEventListener('resize',resize);
+resize();
+
+// Input
+window.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+});
+window.addEventListener('keyup',e=>keys[e.key]=false);
+C.addEventListener('touchstart',e=>{
+  e.preventDefault();touching=true;
+  touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;
+});
+C.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  touchX=e.touches[0].clientX;touchY=e.touches[0].clientY;
+});
+C.addEventListener('touchend',()=>touching=false);
+
+function startGame(){
+  document.getElementById('startScreen').style.display='none';
+  gameState='play';score=0;items=0;distance=0;speed=1;
+  cart.x=W/2;cart.y=H-80;
+  products=[];cashiers=[];particles=[];obstacles=[];shelfRows=[];
+  frameCount=0;spawnTimer=0;cashierTimer=0;
+  loop();
+}
+
+function spawnProduct(){
+  const type=PRODUCTS[Math.floor(Math.random()*PRODUCTS.length)];
+  const x=Math.random()*(W-40)+20;
+  products.push({
+    x,y:-30,type,
+    vy:1+Math.random()*2,
+    w:30,h:30,
+    rot:0,rotSpd:(Math.random()-0.5)*0.1
+  });
+}
+
+function spawnCashier(){
+  const side=Math.random()<0.5;
+  cashiers.push({
+    x:side?-40:W+40,
+    y:Math.random()*(H-200)+100,
+    vx:side?(1.5+speed*0.5):-(1.5+speed*0.5),
+    vy:0,
+    w:35,h:45,
+    angry:false,angryTimer:0,
+    color:['#ff4444','#ff6644','#ff2222'][Math.floor(Math.random()*3)]
+  });
+}
+
+function spawnShelf(){
+  shelfRows.push({
+    x:Math.random()*(W-100)+50,
+    y:-40,
+    w:80+Math.random()*60,
+    h:20,
+    vy:1.5
+  });
+}
+
+function addParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2,s=Math.random()*4+2;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:25+Math.random()*15,color,sz:Math.random()*3+1});
+  }
+}
+
+function update(){
+  frameCount++;
+  distance+=speed*0.1;
+  speed=1+Math.floor(distance/500)*0.3;
+  
+  // Spawn products
+  spawnTimer++;
+  if(spawnTimer>30-Math.min(speed*3,15)){
+    spawnTimer=0;
+    spawnProduct();
+    if(Math.random()<0.3)spawnProduct();
+  }
+  
+  // Spawn cashiers
+  cashierTimer++;
+  if(cashierTimer>180-Math.min(speed*20,100)){
+    cashierTimer=0;
+    spawnCashier();
+  }
+  
+  // Spawn shelves
+  shelfTimer++;
+  if(shelfTimer>120){
+    shelfTimer=0;
+    spawnShelf();
+  }
+  
+  // Move cart
+  let dx=0,dy=0;
+  if(keys['ArrowLeft']||keys['a'])dx=-1;
+  if(keys['ArrowRight']||keys['d'])dx=1;
+  if(keys['ArrowUp']||keys['w'])dy=-1;
+  if(keys['ArrowDown']||keys['s'])dy=1;
+  
+  if(touching){
+    const tdx=touchX-cart.x,tdy=touchY-cart.y;
+    const dist=Math.hypot(tdx,tdy);
+    if(dist>10){dx=tdx/dist;dy=tdy/dist}
+  }
+  
+  if(dx&&dy){dx*=0.707;dy*=0.707}
+  cart.x+=dx*cart.spd;
+  cart.y+=dy*cart.spd;
+  cart.x=Math.max(25,Math.min(W-25,cart.x));
+  cart.y=Math.max(25,Math.min(H-25,cart.y));
+  
+  // Update products
+  for(let i=products.length-1;i>=0;i--){
+    const p=products[i];
+    p.y+=p.vy;p.rot+=p.rotSpd;
+    if(p.y>H+30){products.splice(i,1);continue}
+    
+    // Collect
+    const dist=Math.hypot(p.x-cart.x,p.y-cart.y);
+    if(dist<35){
+      score+=p.type.score;
+      items++;
+      addParticles(p.x,p.y,p.type.color,10);
+      document.getElementById('score').textContent=score;
+      document.getElementById('items').textContent=items;
+      products.splice(i,1);
+    }
+  }
+  
+  // Update cashiers
+  for(let i=cashiers.length-1;i>=0;i--){
+    const c=cashiers[i];
+    
+    // Chase cart
+    const dx2=cart.x-c.x,dy2=cart.y-c.y;
+    const dist=Math.hypot(dx2,dy2);
+    if(dist>0){
+      c.vx+=dx2/dist*0.1;
+      c.vy+=dy2/dist*0.1;
+    }
+    
+    // Speed limit
+    const spd=Math.hypot(c.vx,c.vy);
+    const maxSpd=1.5+speed*0.4;
+    if(spd>maxSpd){c.vx=c.vx/spd*maxSpd;c.vy=c.vy/spd*maxSpd}
+    
+    c.x+=c.vx;c.y+=c.vy;
+    
+    // Catch!
+    if(dist<30){
+      gameState='over';
+      document.getElementById('finalScore').textContent=score;
+      document.getElementById('finalItems').textContent=items;
+      document.getElementById('finalDist').textContent=Math.floor(distance);
+      document.getElementById('gameOver').style.display='flex';
+      return;
+    }
+    
+    // Remove if off screen too far
+    if(c.x<-100||c.x>W+100||c.y<-100||c.y>H+100){
+      cashiers.splice(i,1);
+    }
+  }
+  
+  // Update shelves
+  for(let i=shelfRows.length-1;i>=0;i--){
+    const s=shelfRows[i];
+    s.y+=s.vy;
+    if(s.y>H+30){shelfRows.splice(i,1);continue}
+    
+    // Collision with cart
+    if(cart.x>s.x-s.w/2-25&&cart.x<s.x+s.w/2+25&&
+       cart.y>s.y-s.h/2-20&&cart.y<s.y+s.h/2+20){
+      // Push cart down
+      cart.y=s.y+s.h/2+20;
+    }
+  }
+  
+  // Update particles
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.life--;
+    if(p.life<=0)particles.splice(i,1);
+  }
+  
+  // Update HUD
+  document.getElementById('dist').textContent=Math.floor(distance);
+  document.getElementById('speed').textContent=Math.floor(speed*10)/10;
+}
+
+function draw(){
+  // Background - supermarket floor
+  const grad=X.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#f5f5dc');
+  grad.addColorStop(1,'#e8e8c8');
+  X.fillStyle=grad;
+  X.fillRect(0,0,W,H);
+  
+  // Floor tiles
+  X.strokeStyle='rgba(0,0,0,0.1)';
+  X.lineWidth=1;
+  for(let x=0;x<W;x+=60){X.beginPath();X.moveTo(x,0);X.lineTo(x,H);X.stroke()}
+  for(let y=0;y<H;y+=60){X.beginPath();X.moveTo(0,y);X.lineTo(W,y);X.stroke()}
+  
+  // Shelves
+  for(const s of shelfRows){
+    X.fillStyle='#8B4513';
+    X.fillRect(s.x-s.w/2,s.y-s.h/2,s.w,s.h);
+    X.fillStyle='#A0522D';
+    X.fillRect(s.x-s.w/2+2,s.y-s.h/2+2,s.w-4,s.h-4);
+    // Items on shelf
+    X.font='12px sans-serif';
+    for(let j=0;j<3;j++){
+      X.fillText(['🥫','🧴','📦'][j],s.x-s.w/3+j*(s.w/3),s.y+4);
+    }
+  }
+  
+  // Products
+  for(const p of products){
+    X.save();
+    X.translate(p.x,p.y);
+    X.rotate(p.rot);
+    X.font='24px sans-serif';
+    X.textAlign='center';
+    X.textBaseline='middle';
+    X.fillText(p.type.icon,0,0);
+    X.restore();
+  }
+  
+  // Cart
+  X.save();
+  X.translate(cart.x,cart.y);
+  
+  // Cart shadow
+  X.fillStyle='rgba(0,0,0,0.2)';
+  X.beginPath();X.ellipse(0,20,25,8,0,0,Math.PI*2);X.fill();
+  
+  // Cart body
+  X.fillStyle='#888';
+  X.fillRect(-22,-15,44,30);
+  X.fillStyle='#aaa';
+  X.fillRect(-20,-13,40,26);
+  
+  // Cart handle
+  X.strokeStyle='#666';
+  X.lineWidth=3;
+  X.beginPath();X.moveTo(-15,-15);X.lineTo(-20,-30);X.stroke();
+  X.beginPath();X.moveTo(15,-15);X.lineTo(20,-30);X.stroke();
+  X.beginPath();X.moveTo(-20,-30);X.lineTo(20,-30);X.stroke();
+  
+  // Cart wheels
+  X.fillStyle='#333';
+  X.beginPath();X.arc(-15,15,5,0,Math.PI*2);X.fill();
+  X.beginPath();X.arc(15,15,5,0,Math.PI*2);X.fill();
+  
+  // Items in cart (show last few)
+  const itemCount=Math.min(items,5);
+  X.font='14px sans-serif';
+  for(let i=0;i<itemCount;i++){
+    const px=-10+i*8,py=-5-Math.sin(frameCount*0.1+i)*2;
+    X.fillText(['🍎','🍌','🥛','🍞','🥤'][i%5],px,py);
+  }
+  
+  X.restore();
+  
+  // Cashiers
+  for(const c of cashiers){
+    X.save();
+    X.translate(c.x,c.y);
+    
+    // Body
+    X.fillStyle=c.color;
+    X.beginPath();X.ellipse(0,0,15,20,0,0,Math.PI*2);X.fill();
+    
+    // Head
+    X.fillStyle='#ffcc99';
+    X.beginPath();X.arc(0,-22,12,0,Math.PI*2);X.fill();
+    
+    // Angry face
+    X.fillStyle='#000';
+    X.beginPath();X.arc(-4,-24,2,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(4,-24,2,0,Math.PI*2);X.fill();
+    
+    // Angry eyebrows
+    X.strokeStyle='#000';
+    X.lineWidth=2;
+    X.beginPath();X.moveTo(-8,-28);X.lineTo(-2,-26);X.stroke();
+    X.beginPath();X.moveTo(8,-28);X.lineTo(2,-26);X.stroke();
+    
+    // Mouth
+    X.beginPath();X.arc(0,-18,4,0,Math.PI);X.stroke();
+    
+    // Apron
+    X.fillStyle='#ffffff';
+    X.fillRect(-12,-5,24,20);
+    X.fillStyle='#ff0000';
+    X.font='12px sans-serif';
+    X.textAlign='center';
+    X.fillText('收银',0,8);
+    
+    // Arms reaching
+    const armAngle=Math.sin(frameCount*0.1)*0.3;
+    X.strokeStyle='#ffcc99';
+    X.lineWidth=4;
+    X.beginPath();X.moveTo(-15,0);X.lineTo(-25,10+Math.sin(armAngle)*5);X.stroke();
+    X.beginPath();X.moveTo(15,0);X.lineTo(25,10-Math.sin(armAngle)*5);X.stroke();
+    
+    X.restore();
+  }
+  
+  // Particles
+  for(const p of particles){
+    X.save();
+    X.globalAlpha=p.life/40;
+    X.fillStyle=p.color;
+    X.beginPath();X.arc(p.x,p.y,p.sz,0,Math.PI*2);X.fill();
+    X.restore();
+  }
+  
+  // Speed lines
+  if(speed>2){
+    X.strokeStyle='rgba(255,255,255,0.2)';
+    X.lineWidth=1;
+    for(let i=0;i<5;i++){
+      const x=Math.random()*W;
+      X.beginPath();X.moveTo(x,0);X.lineTo(x-20,H);X.stroke();
+    }
+  }
+}
+
+function loop(){
+  if(gameState!=='play')return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
