@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>脑木师</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0a;color:#e0e0e0;font-family:'Microsoft YaHei',system-ui,sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+canvas{display:block;background:#111;border-radius:8px}
+.hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:10;font-size:14px}
+.hud-l,.hud-r{background:rgba(0,0,0,.7);padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1)}
+.hud-l div,.hud-r div{margin:2px 0}
+.hp-bar{width:120px;height:8px;background:#333;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}
+.hp-fill{height:100%;background:linear-gradient(90deg,#ff4444,#ff6b6b);border-radius:4px;transition:width .3s}
+.wave-banner{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;font-weight:900;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,.5);z-index:20;pointer-events:none;opacity:0;transition:opacity .3s}
+.wave-banner.show{opacity:1}
+.shop-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.shop-overlay.show{display:flex}
+.shop-title{font-size:28px;color:#ffd700;margin-bottom:16px}
+.shop-coins{font-size:18px;color:#ff8c00;margin-bottom:20px}
+.shop-section{width:100%;max-width:500px;margin-bottom:16px}
+.shop-section h3{color:#aaa;font-size:14px;margin-bottom:8px;border-bottom:1px solid #333;padding-bottom:4px}
+.shop-item{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:all .2s}
+.shop-item:hover{border-color:#ffd700;background:rgba(255,215,0,.1)}
+.shop-item.disabled{opacity:.4;cursor:not-allowed}
+.shop-item .si-info{flex:1}
+.shop-item .si-name{font-weight:700;font-size:15px}
+.shop-item .si-desc{font-size:12px;color:#888;margin-top:2px}
+.shop-item .si-price{color:#ff8c00;font-weight:700;font-size:16px;white-space:nowrap;margin-left:12px}
+.btn{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;border:none;padding:12px 32px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:12px}
+.btn:hover{transform:scale(1.05)}
+.start-overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.start-overlay.hide{display:none}
+.start-overlay h1{font-size:48px;color:#ffd700;margin-bottom:10px}
+.start-overlay p{color:#888;margin-bottom:20px;font-size:14px}
+.weapon-select{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;justify-content:center}
+.weapon-opt{background:rgba(255,255,255,.05);border:2px solid #333;border-radius:12px;padding:16px;text-align:center;cursor:pointer;width:140px;transition:all .2s}
+.weapon-opt:hover,.weapon-opt.selected{border-color:#ffd700;background:rgba(255,215,0,.1)}
+.weapon-opt .wo-icon{font-size:36px}
+.weapon-opt .wo-name{font-weight:700;margin-top:6px}
+.weapon-opt .wo-desc{font-size:11px;color:#888;margin-top:4px}
+.controls{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:6px 16px;border-radius:20px;font-size:11px;color:#666;z-index:10}
+</style>
+</head>
+<body>
+<div class="hud">
+  <div class="hud-l">
+    <div>❤️ <span class="hp-bar"><span class="hp-fill" id="hpFill"></span></span> <span id="hpText">100/100</span></div>
+    <div>🌊 波数：<span id="waveText">1</span>/20</div>
+    <div>🪙 红肠币：<span id="coinText">0</span></div>
+  </div>
+  <div class="hud-r">
+    <div id="weaponInfo">🗡️ 红肠 Lv.1</div>
+    <div id="statInfo">速度:0 攻击:0 护甲:0</div>
+  </div>
+</div>
+<div class="wave-banner" id="waveBanner"></div>
+<canvas id="game"></canvas>
+
+<div class="shop-overlay" id="shopOverlay">
+  <div class="shop-title">🛒 商城</div>
+  <div class="shop-coins">🪙 红肠币：<span id="shopCoins">0</span></div>
+  <div class="shop-section" id="shopWeapons"></div>
+  <div class="shop-section" id="shopAccessories"></div>
+  <button class="btn" onclick="closeShop()">⚔️ 下一波</button>
+</div>
+
+<div class="start-overlay" id="startOverlay">
+  <h1>🧠 脑木师</h1>
+  <p>选择初始武器</p>
+  <div class="weapon-select" id="weaponSelect"></div>
+  <button class="btn" onclick="startGame()">开始战斗</button>
+</div>
+
+<div class="controls">WASD/方向键移动 · 自动攻击最近敌人</div>
+
+<script>
+// ===== GAME CONFIG =====
+var W=0,H=0,cvs,ctx;
+var TICK=1000/60;
+var PLAYER_SPEED=3;
+var PLAYER_BASE_HP=100;
+var ENEMY_SPAWN_DIST=400;
+
+// Weapons
+var WEAPONS={
+  红肠:{type:'melee',icon:'🌭',baseDmg:12,range:50,cooldown:400,desc:'近战·伤害均衡',color:'#ff4444'},
+  法杖:{type:'ranged',icon:'🪄',baseDmg:8,range:300,cooldown:500,desc:'远程·安全输出',color:'#8844ff',projSpeed:6,projSize:5},
+  浮木:{type:'melee',icon:'🪵',baseDmg:22,range:60,cooldown:600,desc:'近战·高伤慢速',color:'#8B4513'}
+};
+
+// Accessories
+var ACCESSORIES=[
+  {id:'spd',name:'⚡ 速度挂饰',desc:'+15% 移速',cost:30,stat:'spd',val:0.15,max:1.0,cap:'100%'},
+  {id:'atk',name:'⚔️ 攻击挂饰',desc:'+20% 攻击',cost:40,stat:'atk',val:0.20,max:2.0,cap:'200%'},
+  {id:'hp',name:'❤️ 生命挂饰',desc:'+30 最大HP',cost:35,stat:'hp',val:30,max:300,cap:'+300'},
+  {id:'armor',name:'🛡️ 护甲挂饰',desc:'+5 护甲',cost:45,stat:'armor',val:5,max:50,cap:'50'},
+  {id:'range',name:'🎯 范围挂饰',desc:'+15% 攻击范围',cost:50,stat:'range',val:0.15,max:1.0,cap:'100%'},
+  {id:'lifesteal',name:'💚 吸血挂饰',desc:'+3% 吸血',cost:60,stat:'lifesteal',val:0.03,max:0.30,cap:'30%'}
+];
+
+// Enemy types per wave range
+var ENEMY_TYPES=[
+  {name:'小蛆',icon:'🐛',color:'#88ff88',hp:20,speed:1.2,dmg:5,xp:3,coins:1,size:12},
+  {name:'毒虫',icon:'🪲',color:'#44ff44',hp:35,speed:1.5,dmg:8,xp:5,coins:2,size:14},
+  {name:'甲虫',icon:'🪳',color:'#88aa44',hp:60,speed:1.0,dmg:12,xp:8,coins:3,size:16},
+  {name:'蜘蛛',icon:'🕷️',color:'#aa44aa',hp:80,speed:1.8,dmg:15,xp:10,coins:4,size:15},
+  {name:'毒蛇',icon:'🐍',color:'#44aa44',hp:100,speed:2.0,dmg:20,xp:15,coins:5,size:14},
+  {name:'恶魔',icon:'👹',color:'#ff4444',hp:150,speed:1.5,dmg:25,xp:20,coins:8,size:18}
+];
+
+var BOSS={name:'脑魔',icon:'🧠',color:'#ff00ff',hp:2000,speed:1.2,dmg:40,xp:200,coins:100,size:40};
+
+// ===== GAME STATE =====
+var player,x,y,weapon,enemies,projectiles,effects,wave,waveEnemies,waveTimer,coins;
+var gameRunning=false,gamePaused=false,shopOpen=false;
+var selectedWeapon='红肠';
+var keys={};
+var killCount=0,totalKills=0;
+var accCounts={spd:0,atk:0,hp:0,armor:0,range:0,lifesteal:0};
+var weaponLevel=1;
+var waveCoinsEarned=0;
+
+// ===== INIT =====
+cvs=document.getElementById('game');
+ctx=cvs.getContext('2d');
+
+function resize(){
+  W=window.innerWidth;H=window.innerHeight;
+  cvs.width=W;cvs.height=H;
+}
+window.addEventListener('resize',resize);
+resize();
+
+// Weapon select UI
+(function(){
+  var el=document.getElementById('weaponSelect');
+  var h='';
+  for(var k in WEAPONS){
+    var w=WEAPONS[k];
+    h+='<div class="weapon-opt'+(k===selectedWeapon?' selected':'')+'" onclick="selectWeapon(\''+k+'\')">'
+      +'<div class="wo-icon">'+w.icon+'</div>'
+      +'<div class="wo-name">'+k+'</div>'
+      +'<div class="wo-desc">'+w.desc+'</div></div>';
+  }
+  el.innerHTML=h;
+})();
+
+function selectWeapon(k){
+  selectedWeapon=k;
+  document.querySelectorAll('.weapon-opt').forEach(function(el,i){
+    el.classList.toggle('selected',Object.keys(WEAPONS)[i]===k);
+  });
+}
+
+// ===== GAME START =====
+function startGame(){
+  document.getElementById('startOverlay').classList.add('hide');
+  x=W/2;y=H/2;
+  weapon=selectedWeapon;
+  weaponLevel=1;
+  enemies=[];projectiles=[];effects=[];
+  wave=0;coins=0;killCount=0;totalKills=0;
+  accCounts={spd:0,atk:0,hp:0,armor:0,range:0,lifesteal:0};
+  player={hp:getMaxHp(),maxHp:getMaxHp()};
+  gameRunning=true;gamePaused=false;shopOpen=false;
+  nextWave();
+}
+
+function getMaxHp(){return PLAYER_BASE_HP+accCounts.hp*30}
+function getSpeed(){return PLAYER_SPEED*(1+Math.min(accCounts.spd*0.15,1.0))}
+function getDmgMult(){return 1+Math.min(accCounts.atk*0.20,2.0)}
+function getArmor(){return Math.min(accCounts.armor*5,50)}
+function getRangeMult(){return 1+Math.min(accCounts.range*0.15,1.0)}
+function getLifesteal(){return Math.min(accCounts.lifesteal*0.03,0.30)}
+
+// ===== WAVE SYSTEM =====
+function nextWave(){
+  wave++;
+  waveCoinsEarned=0;
+  if(wave>20){winGame();return}
+  var banner=document.getElementById('waveBanner');
+  if(wave===20){
+    banner.textContent='⚠️ BOSS战！';
+  } else {
+    banner.textContent='🌊 第 '+wave+' 波';
+  }
+  banner.classList.add('show');
+  setTimeout(function(){banner.classList.remove('show')},1500);
+
+  waveEnemies=[];
+  if(wave===20){
+    // Boss wave
+    waveEnemies.push(createEnemy(BOSS,true));
+  } else {
+    var count=3+Math.floor(wave*1.5);
+    var typeIdx=Math.min(Math.floor((wave-1)/4),ENEMY_TYPES.length-1);
+    for(var i=0;i<count;i++){
+      var t=ENEMY_TYPES[typeIdx];
+      // Some enemies from previous types too
+      if(i<count/3 && typeIdx>0) t=ENEMY_TYPES[typeIdx-1];
+      waveEnemies.push(createEnemy(t,false));
+    }
+  }
+  waveTimer=0;
+}
+
+function createEnemy(t,isBoss){
+  var angle=Math.random()*Math.PI*2;
+  var dist=ENEMY_SPAWN_DIST+Math.random()*100;
+  var ex=x+Math.cos(angle)*dist;
+  var ey=y+Math.sin(angle)*dist;
+  var waveMult=1+(wave-1)*0.12;
+  return {
+    x:ex,y:ey,
+    hp:Math.round(t.hp*waveMult),
+    maxHp:Math.round(t.hp*waveMult),
+    speed:t.speed*(0.9+Math.random()*0.2),
+    dmg:Math.round(t.dmg*waveMult),
+    xp:t.xp,coins:t.coins,
+    size:t.size*(isBoss?2:1),
+    icon:t.icon,color:t.color,
+    isBoss:isBoss||false,
+    name:t.name,
+    hitTimer:0,
+    attackCd:0
+  };
+}
+
+function spawnWaveEnemies(){
+  if(!waveEnemies.length)return;
+  // Spawn one enemy every 30 frames
+  waveTimer++;
+  if(waveTimer%30===0 && waveEnemies.length>0){
+    enemies.push(waveEnemies.shift());
+  }
+}
+
+// ===== PLAYER =====
+function updatePlayer(){
+  var dx=0,dy=0;
+  if(keys['ArrowLeft']||keys['KeyA'])dx=-1;
+  if(keys['ArrowRight']||keys['KeyD'])dx=1;
+  if(keys['ArrowUp']||keys['KeyW'])dy=-1;
+  if(keys['ArrowDown']||keys['KeyS'])dy=1;
+  if(dx||dy){
+    var len=Math.sqrt(dx*dx+dy*dy);
+    var spd=getSpeed();
+    x+=dx/len*spd;
+    y+=dy/len*spd;
+    // Clamp to arena
+    var margin=20;
+    x=Math.max(margin,Math.min(W-margin,x));
+    y=Math.max(margin,Math.min(H-margin,y));
+  }
+}
+
+// ===== COMBAT =====
+var attackTimer=0;
+function updateCombat(){
+  var w=WEAPONS[weapon];
+  attackTimer+=TICK;
+  if(attackTimer<w.cooldown){
+    // Still on cooldown
+  } else if(enemies.length>0){
+    // Find nearest enemy
+    var nearest=null,nd=Infinity;
+    for(var i=0;i<enemies.length;i++){
+      var d=Math.hypot(enemies[i].x-x,enemies[i].y-y);
+      if(d<nd){nd=d;nearest=enemies[i];}
+    }
+    var range=w.range*getRangeMult();
+    if(nearest && nd<range+nearest.size){
+      attackTimer=0;
+      if(w.type==='melee'){
+        meleeAttack(nearest,w);
+      } else {
+        shootProjectile(nearest,w);
+      }
+    }
+  }
+}
+
+function meleeAttack(target,w){
+  var dmg=Math.round(w.baseDmg*getDmgMult()*weaponLevel);
+  target.hp-=dmg;
+  target.hitTimer=8;
+  addEffect(target.x,target.y,'-'+dmg,'#ff4444',20);
+  // Lifesteal
+  var ls=getLifesteal();
+  if(ls>0){
+    var heal=Math.round(dmg*ls);
+    player.hp=Math.min(player.maxHp,player.hp+heal);
+  }
+  // Swing effect
+  var angle=Math.atan2(target.y-y,target.x-x);
+  addEffect(x+Math.cos(angle)*30,y+Math.sin(angle)*30,w.icon,30,0);
+}
+
+function shootProjectile(target,w){
+  var angle=Math.atan2(target.y-y,target.x-x);
+  projectiles.push({
+    x:x,y:y,
+    vx:Math.cos(angle)*w.projSpeed,
+    vy:Math.sin(angle)*w.projSpeed,
+    dmg:Math.round(w.baseDmg*getDmgMult()*weaponLevel),
+    size:w.projSize,
+    color:w.color,
+    life:60
+  });
+}
+
+function updateProjectiles(){
+  for(var i=projectiles.length-1;i>=0;i--){
+    var p=projectiles[i];
+    p.x+=p.vx;p.y+=p.vy;
+    p.life--;
+    if(p.life<=0||p.x<-50||p.x>W+50||p.y<-50||p.y>H+50){
+      projectiles.splice(i,1);continue;
+    }
+    // Hit enemies
+    for(var j=enemies.length-1;j>=0;j--){
+      var e=enemies[j];
+      if(Math.hypot(p.x-e.x,p.y-e.y)<e.size+p.size){
+        e.hp-=p.dmg;
+        e.hitTimer=8;
+        addEffect(e.x,e.y,'-'+p.dmg,'#ff4444',20);
+        var ls=getLifesteal();
+        if(ls>0) player.hp=Math.min(player.maxHp,player.hp+Math.round(p.dmg*ls));
+        projectiles.splice(i,1);
+        break;
+      }
+    }
+  }
+}
+
+// ===== ENEMIES =====
+function updateEnemies(){
+  for(var i=enemies.length-1;i>=0;i--){
+    var e=enemies[i];
+    // Move toward player
+    var dx=x-e.x,dy=y-e.y;
+    var d=Math.hypot(dx,dy);
+    if(d>0){
+      e.x+=dx/d*e.speed;
+      e.y+=dy/d*e.speed;
+    }
+    // Hit player
+    if(d<e.size+15){
+      if(e.attackCd<=0){
+        var dmg=Math.max(1,e.dmg-getArmor());
+        player.hp-=dmg;
+        addEffect(x,y-20,'-'+dmg,'#ff6666',25);
+        e.attackCd=30;
+      }
+    }
+    if(e.attackCd>0)e.attackCd--;
+    if(e.hitTimer>0)e.hitTimer--;
+    // Dead
+    if(e.hp<=0){
+      coins+=e.coins;
+      waveCoinsEarned+=e.coins;
+      killCount++;totalKills++;
+      addEffect(e.x,e.y,'+'+e.coins+'🪙','#ffd700',30);
+      enemies.splice(i,1);
+    }
+  }
+}
+
+// ===== EFFECTS =====
+function addEffect(ex,ey,text,color,life){
+  effects.push({x:ex,y:ey,text:text,color:color||'#fff',life:life||20,maxLife:life||20});
+}
+function updateEffects(){
+  for(var i=effects.length-1;i>=0;i--){
+    effects[i].life--;
+    effects[i].y-=0.8;
+    if(effects[i].life<=0) effects.splice(i,1);
+  }
+}
+
+// ===== WAVE END CHECK =====
+function checkWaveEnd(){
+  if(waveEnemies.length===0 && enemies.length===0 && !shopOpen){
+    if(wave>=20){
+      winGame();
+    } else {
+      openShop();
+    }
+  }
+}
+
+// ===== SHOP =====
+function openShop(){
+  shopOpen=true;
+  document.getElementById('shopCoins').textContent=coins;
+  renderShopItems();
+  document.getElementById('shopOverlay').classList.add('show');
+}
+
+function closeShop(){
+  shopOpen=false;
+  document.getElementById('shopOverlay').classList.remove('show');
+  player.maxHp=getMaxHp();
+  player.hp=Math.min(player.hp,player.maxHp);
+  nextWave();
+}
+
+function renderShopItems(){
+  // Weapons
+  var wh='<h3>🗡️ 武器升级</h3>';
+  var upgCost=weaponLevel*25;
+  var canUpg=coins>=upgCost;
+  wh+='<div class="shop-item'+(canUpg?'':' disabled')+'" onclick="upgradeWeapon()">'
+    +'<div class="si-info"><div class="si-name">'+WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel+' → Lv.'+(weaponLevel+1)+'</div>'
+    +'<div class="si-desc">伤害 ×'+(weaponLevel+1)+'</div></div>'
+    +'<div class="si-price">🪙 '+upgCost+'</div></div>';
+  document.getElementById('shopWeapons').innerHTML=wh;
+
+  // Accessories
+  var ah='<h3>💎 挂饰</h3>';
+  for(var i=0;i<ACCESSORIES.length;i++){
+    var a=ACCESSORIES[i];
+    var cnt=accCounts[a.stat]||0;
+    var currentVal=cnt*a.val;
+    var atMax=currentVal>=a.max;
+    var cost=a.cost+cnt*15;
+    var canBuy=coins>=cost&&!atMax;
+    ah+='<div class="shop-item'+(canBuy?'':' disabled')+'" onclick="buyAccessory('+i+')">'
+      +'<div class="si-info"><div class="si-name">'+a.name+' (已装 '+cnt+')</div>'
+      +'<div class="si-desc">'+a.desc+' · 上限:'+a.cap+(atMax?' · 已满':'')+'</div></div>'
+      +'<div class="si-price">'+(atMax?'✅满级':'🪙 '+cost)+'</div></div>';
+  }
+  document.getElementById('shopAccessories').innerHTML=ah;
+}
+
+function upgradeWeapon(){
+  var cost=weaponLevel*25;
+  if(coins>=cost){
+    coins-=cost;
+    weaponLevel++;
+    document.getElementById('shopCoins').textContent=coins;
+    renderShopItems();
+    updateHud();
+  }
+}
+
+function buyAccessory(idx){
+  var a=ACCESSORIES[idx];
+  var cnt=accCounts[a.stat]||0;
+  var currentVal=cnt*a.val;
+  if(currentVal>=a.max)return;
+  var cost=a.cost+cnt*15;
+  if(coins>=cost){
+    coins-=cost;
+    accCounts[a.stat]++;
+    player.maxHp=getMaxHp();
+    player.hp=Math.min(player.hp+30,player.maxHp);
+    document.getElementById('shopCoins').textContent=coins;
+    renderShopItems();
+    updateHud();
+  }
+}
+
+// ===== HUD =====
+function updateHud(){
+  var pct=Math.max(0,player.hp/player.maxHp*100);
+  document.getElementById('hpFill').style.width=pct+'%';
+  document.getElementById('hpText').textContent=Math.max(0,Math.round(player.hp))+'/'+player.maxHp;
+  document.getElementById('waveText').textContent=wave;
+  document.getElementById('coinText').textContent=coins;
+  document.getElementById('weaponInfo').textContent=WEAPONS[weapon].icon+' '+weapon+' Lv.'+weaponLevel;
+  document.getElementById('statInfo').textContent='速度:'+Math.round(accCounts.spd*15)+'% 攻击:'+Math.round(accCounts.atk*20)+'% 护甲:'+getArmor();
+}
+
+// ===== GAME OVER =====
+function gameOver(){
+  gameRunning=false;
+  setTimeout(function(){
+    if(confirm('💀 你倒下了！\n\n波数：'+wave+'\n击杀：'+totalKills+'\n红肠币：'+coins+'\n\n再来一局？')){
+      document.getElementById('startOverlay').classList.remove('hide');
+    }
+  },500);
+}
+
+function winGame(){
+  gameRunning=false;
+  setTimeout(function(){
+    alert('🎉 恭喜通关！\n\n击杀：'+totalKills+'\n红肠币：'+coins+'\n\n你是最强脑木师！');
+    document.getElementById('startOverlay').classList.remove('hide');
+  },500);
+}
+
+// ===== RENDER =====
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // Arena background
+  ctx.fillStyle='#0d0d0d';
+  ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.03)';
+  ctx.lineWidth=1;
+  for(var gx=0;gx<W;gx+=60){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke()}
+  for(var gy=0;gy<H;gy+=60){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke()}
+
+  // Enemies
+  for(var i=0;i<enemies.length;i++){
+    var e=enemies[i];
+    // Shadow
+    ctx.fillStyle='rgba(0,0,0,.3)';
+    ctx.beginPath();ctx.ellipse(e.x,e.y+e.size,e.size*.8,e.size*.3,0,0,Math.PI*2);ctx.fill();
+    // Body
+    ctx.fillStyle=e.hitTimer>0?'#fff':e.color;
+    ctx.beginPath();ctx.arc(e.x,e.y,e.size,0,Math.PI*2);ctx.fill();
+    // Icon
+    ctx.font=(e.size*1.2)+'px serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(e.icon,e.x,e.y);
+    // HP bar
+    if(e.hp<e.maxHp){
+      var bw=e.size*2;
+      var bx=e.x-bw/2,by=e.y-e.size-8;
+      ctx.fillStyle='#333';ctx.fillRect(bx,by,bw,4);
+      ctx.fillStyle=e.isBoss?'#ff00ff':'#ff4444';ctx.fillRect(bx,by,bw*(e.hp/e.maxHp),4);
+    }
+  }
+
+  // Projectiles
+  for(var i=0;i<projectiles.length;i++){
+    var p=projectiles[i];
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+    ctx.shadowColor=p.color;ctx.shadowBlur=10;
+    ctx.fill();ctx.shadowBlur=0;
+  }
+
+  // Player shadow
+  ctx.fillStyle='rgba(0,0,0,.3)';
+  ctx.beginPath();ctx.ellipse(x,y+15,14,5,0,0,Math.PI*2);ctx.fill();
+  // Player body
+  ctx.fillStyle='#4488ff';
+  ctx.beginPath();ctx.arc(x,y,15,0,Math.PI*2);ctx.fill();
+  // Player icon
+  ctx.font='18px serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('🧠',x,y);
+
+  // Weapon indicator
+  var w=WEAPONS[weapon];
+  if(attackTimer<w.cooldown*0.8){
+    ctx.globalAlpha=0.5;
+  }
+  ctx.font='20px serif';
+  if(w.type==='melee'){
+    ctx.fillText(w.icon,x+20,y-15);
+  } else {
+    ctx.fillText(w.icon,x+18,y-12);
+  }
+  ctx.globalAlpha=1;
+
+  // Effects
+  for(var i=0;i<effects.length;i++){
+    var ef=effects[i];
+    ctx.globalAlpha=ef.life/ef.maxLife;
+    ctx.font='bold 14px sans-serif';
+    ctx.fillStyle=ef.color;
+    ctx.textAlign='center';
+    ctx.fillText(ef.text,ef.x,ef.y);
+  }
+  ctx.globalAlpha=1;
+
+  // Melee range indicator (subtle)
+  if(w.type==='melee' && attackTimer>=w.cooldown){
+    ctx.strokeStyle='rgba(255,255,255,.08)';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(x,y,w.range*getRangeMult(),0,Math.PI*2);ctx.stroke();
+  }
+}
+
+// ===== GAME LOOP =====
+function gameLoop(){
+  if(!gameRunning||shopOpen)return;
+  updatePlayer();
+  spawnWaveEnemies();
+  updateCombat();
+  updateProjectiles();
+  updateEnemies();
+  updateEffects();
+  updateHud();
+  checkWaveEnd();
+  if(player.hp<=0) gameOver();
+  draw();
+}
+
+setInterval(gameLoop,TICK);
+
+// ===== INPUT =====
+document.addEventListener('keydown',function(e){keys[e.code]=true});
+document.addEventListener('keyup',function(e){keys[e.code]=false});
+
+// ===== INIT DRAW =====
+draw();
+</script>
+</body>
+</html>
